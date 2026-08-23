@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Admin Suite - Server Tools",
+    "description": "Resources for the Admin Suite server management toolkit.",
+    "uuid": "219c3acc-e365-4bd1-afd0-28225b5ecaf8",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      26,
+      40
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "76b5f8c7-2e97-458c-be6f-94a8cc429e98",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}
