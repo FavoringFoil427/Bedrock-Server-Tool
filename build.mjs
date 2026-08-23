@@ -4,13 +4,9 @@
  * assembles distributable pack folders (and optionally a .mcaddon archive).
  */
 import * as esbuild from 'esbuild';
-import { cp, mkdir, rm, readFile, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { cp, mkdir, rm, readFile, writeFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
-
-const run = promisify(execFile);
+import { createZip } from './scripts/zip.mjs';
 const ROOT = path.dirname(new URL(import.meta.url).pathname);
 const DIST = path.join(ROOT, 'dist');
 const args = process.argv.slice(2);
@@ -63,12 +59,25 @@ const options = {
   banner: { js: `// Admin Suite v${pkg.version} - built ${new Date().toISOString()}` },
 };
 
+/** Collects every file under `dir`, as zip entries rooted at `prefix`. */
+async function collect(dir, prefix) {
+  const entries = [];
+  for (const item of await readdir(dir, { withFileTypes: true })) {
+    const full = path.join(dir, item.name);
+    const name = `${prefix}/${item.name}`;
+    if (item.isDirectory()) entries.push(...(await collect(full, name)));
+    else entries.push({ name, data: await readFile(full) });
+  }
+  return entries;
+}
+
 async function archive() {
   const out = path.join(DIST, `AdminSuite-v${pkg.version}.mcaddon`);
   await rm(out, { force: true });
-  // .mcaddon is a plain zip containing the pack folders.
-  await run('zip', ['-r', '-q', out, 'BP', 'RP'], { cwd: DIST });
-  console.log(`packaged -> ${path.relative(ROOT, out)}`);
+  // A .mcaddon is a plain zip holding both pack folders.
+  const entries = [...(await collect(path.join(DIST, 'BP'), 'BP')), ...(await collect(path.join(DIST, 'RP'), 'RP'))];
+  await writeFile(out, createZip(entries));
+  console.log(`packaged -> ${path.relative(ROOT, out)} (${entries.length} files)`);
 }
 
 if (watch) {
@@ -80,8 +89,5 @@ if (watch) {
   await assemble();
   await esbuild.build(options);
   console.log(`build ok -> dist/BP/scripts/main.js (@minecraft/server ${SERVER_MODULE})`);
-  if (pack) {
-    if (!existsSync('/usr/bin/zip')) throw new Error('zip is required for --package');
-    await archive();
-  }
+  if (pack) await archive();
 }

@@ -1,0 +1,74 @@
+name: Release
+
+# Publishes the built .mcaddon to the Releases page whenever a version tag is
+# pushed. Tag the commit you want to ship, e.g. `git tag v1.0.0 && git push origin v1.0.0`.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (must already exist)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Typecheck, test and build
+        run: npm run check
+
+      - name: Package the addon
+        run: npm run package
+
+      - name: Resolve version
+        id: version
+        run: echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Both extensions are published: .mcaddon installs behaviour and resource
+      # packs together, while some tools expect the .mcpack name.
+      - name: Duplicate as .mcpack
+        run: cp "dist/AdminSuite-v${{ steps.version.outputs.value }}.mcaddon" "dist/AdminSuite-v${{ steps.version.outputs.value }}.mcpack"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: Admin Suite v${{ steps.version.outputs.value }}
+          generate_release_notes: true
+          files: |
+            dist/AdminSuite-v${{ steps.version.outputs.value }}.mcaddon
+            dist/AdminSuite-v${{ steps.version.outputs.value }}.mcpack
+          body: |
+            ## Admin Suite v${{ steps.version.outputs.value }}
+
+            Download **`AdminSuite-v${{ steps.version.outputs.value }}.mcaddon`** below and open it —
+            Minecraft installs both the behaviour and resource pack.
+
+            ### Setup
+
+            1. Create the world with **Beta APIs** and **Cheats** enabled.
+            2. Apply **both** packs to the world.
+            3. Run `/tag @s add admin`, then `/adm:getsuite`.
+            4. Open the Admin Suite item, assign yourself **Owner** under
+               Roles & Permissions, then `/tag @s remove admin`.
+
+            Beta APIs are required only for chat features (the `!` prefix, chat
+            formatting, mute enforcement, the word filter). Everything else works
+            without them, and all commands remain available as `/adm:<command>`.
+
+            See the [README](https://github.com/${{ github.repository }}#readme) and
+            [command reference](https://github.com/${{ github.repository }}/blob/${{ github.event.inputs.tag || github.ref_name }}/docs/COMMANDS.md).
