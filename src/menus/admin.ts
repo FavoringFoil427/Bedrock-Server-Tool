@@ -24,6 +24,7 @@ import { codes, kits } from '../modules/rewards';
 import { ladder } from '../modules/ranks';
 import { availableLocales } from '../core/i18n';
 import { inventoryOf } from '../core/items';
+import { openVaultFor } from '../modules/vault';
 
 /** The staff menu opened by the Admin Suite item. */
 
@@ -83,6 +84,7 @@ async function openPlayer(admin: Player, profile: Profile): Promise<void> {
   const buttons = [
     { text: `${C.accent}Manage roles`, onClick: () => openPlayerRoles(admin, profile) },
     { text: `${C.gold}Adjust balance`, onClick: () => openBalanceEditor(admin, profile) },
+    { text: `${C.accent}View vault`, onClick: async () => openVaultFor(admin, profile) },
   ];
 
   if (target) {

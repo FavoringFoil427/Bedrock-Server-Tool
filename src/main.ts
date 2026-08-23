@@ -19,6 +19,7 @@ import * as quests from './modules/quests';
 import * as rewards from './modules/rewards';
 import * as clans from './modules/clans';
 import * as duels from './modules/duels';
+import * as combat from './modules/combat';
 import * as chat from './modules/chat';
 import * as stats from './modules/stats';
 import * as display from './modules/display';
@@ -26,6 +27,7 @@ import * as broadcast from './modules/broadcast';
 import * as gravestone from './modules/gravestone';
 import * as registration from './modules/registration';
 import * as npc from './modules/npc';
+import * as vault from './modules/vault';
 import * as suite from './modules/suite';
 
 /**
@@ -35,9 +37,10 @@ import * as suite from './modules/suite';
  * module command declarations run immediately at load; anything that touches
  * the world is deferred to the first tick.
  *
- * Module order matters in two places: `land` installs PvP protection that
- * `duels` deliberately overrides for active fights, and `suite` registers the
- * menu items that the NPC module opens.
+ * Module order matters in a few places: `land` installs PvP protection that
+ * `duels` deliberately overrides for active fights, `combat` must load after
+ * `duels` so duellists are exempt from combat tagging, and `suite` registers
+ * the menu items that the NPC module opens.
  */
 const MODULES = [
   economy,
@@ -53,12 +56,14 @@ const MODULES = [
   rewards,
   clans,
   duels,
+  combat,
   chat,
   stats,
   display,
   broadcast,
   gravestone,
   registration,
+  vault,
   suite,
   npc,
 ];

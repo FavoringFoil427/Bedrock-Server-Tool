@@ -16,6 +16,7 @@ import { t } from '../core/i18n';
 import { C, distance, err, formatDuration, formatVec, ok, tell } from '../core/util';
 import { can } from '../core/permissions';
 import { charge, money } from './economy';
+import { blockedByCombat } from './combat';
 
 /**
  * Movement systems: homes, warps, player-to-player requests, random teleport
@@ -62,6 +63,9 @@ export function goTo(player: Player, target: StoredLocation): boolean {
  * when the teleport should proceed.
  */
 export function warmup(player: Player): Promise<boolean> {
+  // Every teleport funnels through here, so the combat gate lives here too.
+  if (blockedByCombat(player)) return Promise.resolve(false);
+
   const seconds = cfg().tpaWarmupSeconds;
   if (seconds <= 0 || can(player, 'bypass.cooldown')) return Promise.resolve(true);
 

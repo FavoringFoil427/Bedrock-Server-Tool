@@ -16,6 +16,7 @@ import { claimAt, claims } from '../modules/land';
 import { clanOf, clans } from '../modules/clans';
 import { prettyItemName } from '../core/items';
 import { codes } from '../modules/rewards';
+import { openVaultCommand } from '../modules/vault';
 
 /** The player-facing menu opened by the Member Suite item. */
 
@@ -41,6 +42,7 @@ export async function openMemberMenu(player: Player): Promise<void> {
       { text: `${C.good}Rewards`, icon: 'textures/ui/icon_gift', onClick: () => openRewards(player) },
       { text: `${C.accent}Progression`, icon: 'textures/ui/icon_bookshelf', onClick: () => openProgression(player) },
       { text: `${C.gold}Clan`, icon: 'textures/ui/icon_multiplayer', onClick: () => openClan(player) },
+      { text: `${C.accent}Vault`, icon: 'textures/ui/icon_book_writable', onClick: () => openVaultCommand(player) },
       { text: `${C.dim}Settings`, icon: 'textures/ui/icon_setting', onClick: () => openSettings(player) },
     ],
   });
