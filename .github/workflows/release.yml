@@ -9,8 +9,8 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to publish (must already exist)'
-        required: true
+        description: 'Tag to publish. Leave blank to use v<version> from package.json.'
+        required: false
 
 permissions:
   contents: write
@@ -34,9 +34,21 @@ jobs:
       - name: Package the addon
         run: npm run package
 
-      - name: Resolve version
+      # Running this workflow by hand needs no pre-existing tag: the release
+      # step creates it from the current commit.
+      - name: Resolve version and tag
         id: version
-        run: echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="${{ github.event.inputs.tag }}"
+          if [ -z "$tag" ]; then
+            case "${{ github.ref }}" in
+              refs/tags/*) tag="${{ github.ref_name }}" ;;
+              *) tag="v${version}" ;;
+            esac
+          fi
+          echo "value=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
       # Both extensions are published: .mcaddon installs behaviour and resource
       # packs together, while some tools expect the .mcpack name.
@@ -46,7 +58,8 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           name: Admin Suite v${{ steps.version.outputs.value }}
           generate_release_notes: true
           files: |
@@ -71,4 +84,4 @@ jobs:
             without them, and all commands remain available as `/adm:<command>`.
 
             See the [README](https://github.com/${{ github.repository }}#readme) and
-            [command reference](https://github.com/${{ github.repository }}/blob/${{ github.event.inputs.tag || github.ref_name }}/docs/COMMANDS.md).
+            [command reference](https://github.com/${{ github.repository }}/blob/${{ steps.version.outputs.tag }}/docs/COMMANDS.md).
