@@ -1,4 +1,4 @@
-import { DisplaySlotId, ObjectiveSortOrder, Player, system, world } from '@minecraft/server';
+import { DisplaySlotId, ObjectiveSortOrder, system, world } from '@minecraft/server';
 import { cfg, saveConfig } from '../core/config';
 import { expand } from '../core/placeholders';
 import { profileOf } from '../core/profiles';
@@ -51,10 +51,10 @@ function refreshNametags(): void {
 /**
  * Renders the sidebar.
  *
- * The scoreboard sidebar is shared by the whole world, so per-player values
- * cannot be shown there. Lines are instead pushed to each player's action bar
- * when they contain personal tokens, and the objective is used for the
- * server-wide header.
+ * Bedrock's scoreboard sidebar is a single world-global display: there is no
+ * per-viewer variant. Sidebar rows therefore carry only server-wide values,
+ * and each player's own figures go to their action bar instead (see
+ * {@link personalStatus}).
  */
 function refreshSidebar(): void {
   const config = cfg();
@@ -82,17 +82,22 @@ function refreshSidebar(): void {
     objective.removeParticipant(participant);
   }
 
-  const sample = world.getAllPlayers()[0];
-  if (!sample) return;
+  const anyPlayer = world.getAllPlayers()[0];
+  if (!anyPlayer) return;
 
-  // Scores order the rows; the highest score sits at the top.
+  // Scores order the rows; the highest score sits at the top. Only
+  // server-wide tokens are meaningful here, since every player sees this.
   const lines = config.sidebarLines;
+  const seen = new Set<string>();
   lines.forEach((line, index) => {
-    const text = expand(sample, line).slice(0, 32);
+    let text = expand(anyPlayer, line).slice(0, 32);
+    // Participants must be unique, so disambiguate repeated rows.
+    while (seen.has(text)) text += ' ';
+    seen.add(text);
     try {
       objective.setScore(text, lines.length - index);
-    } catch {
-      // Duplicate rendered lines collide as participants; skip them.
+    } catch (error) {
+      console.warn(`[AdminSuite] sidebar row failed: ${error}`);
     }
   });
 
@@ -252,6 +257,7 @@ export function install(): void {
   system.runInterval(refreshNametags, 20);
   system.runInterval(refreshSidebar, 60);
   system.runInterval(refreshHolograms, 100);
+  system.runInterval(refreshActionBars, 40);
 }
 
 /** Re-renders holograms after a world reload. */
@@ -260,11 +266,18 @@ export function rebuildHolograms(): void {
   refreshHolograms();
 }
 
-/** Shows a personal action-bar line for values the shared sidebar cannot hold. */
-export function personalStatus(player: Player): void {
+/**
+ * Shows each player their own figures on the action bar, which is the only
+ * per-viewer HUD surface the script API exposes.
+ */
+function refreshActionBars(): void {
   const config = cfg();
-  if (!config.sidebarEnabled) return;
-  player.onScreenDisplay.setActionBar(
-    expand(player, `${C.dim}${config.currencySymbol}{balance}  ${C.reset}{rank}`),
-  );
+  if (!config.actionBarEnabled || !config.actionBarFormat) return;
+  for (const player of world.getAllPlayers()) {
+    try {
+      player.onScreenDisplay.setActionBar(expand(player, config.actionBarFormat));
+    } catch (error) {
+      console.warn(`[AdminSuite] action bar update failed: ${error}`);
+    }
+  }
 }

@@ -53,6 +53,10 @@ export interface Profile {
   frozen?: boolean;
   vanished?: boolean;
   spy?: boolean;
+  /** Set when the player has opted out of duel challenges. */
+  duelsOff?: boolean;
+  /** Set once the member book has been handed out. */
+  gotMemberBook?: boolean;
 
   cooldowns: Record<string, number>;
   nameColor?: string;

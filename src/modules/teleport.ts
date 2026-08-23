@@ -15,6 +15,7 @@ import { Table } from '../core/storage';
 import { t } from '../core/i18n';
 import { C, distance, err, formatDuration, formatVec, ok, tell } from '../core/util';
 import { can } from '../core/permissions';
+import { charge, money } from './economy';
 
 /**
  * Movement systems: homes, warps, player-to-player requests, random teleport
@@ -203,7 +204,6 @@ function installWarps(): void {
       if (!gate(player, profile, 'warp', cfg().warpCooldownSeconds)) return;
 
       if (warp.cost > 0) {
-        const { charge, money } = await import('./economy');
         if (!charge(profile, warp.cost)) {
           return err(player, `That warp costs ${money(warp.cost)}.`);
         }

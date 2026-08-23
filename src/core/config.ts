@@ -36,7 +36,15 @@ export interface Config {
   nametagFormat: string;
   sidebarEnabled: boolean;
   sidebarTitle: string;
+  /**
+   * Sidebar rows. The scoreboard sidebar is world-global in Bedrock, so these
+   * may only use server-wide tokens ({online}, {server}); per-player values
+   * belong in `actionBarFormat`.
+   */
   sidebarLines: string[];
+  /** Per-player status line, shown on the action bar. Empty disables it. */
+  actionBarEnabled: boolean;
+  actionBarFormat: string;
   hologramsEnabled: boolean;
 
   /** World border (soft border enforced by script) */
@@ -93,12 +101,12 @@ export function defaultConfig(): Config {
     sidebarEnabled: true,
     sidebarTitle: '§l§bSERVER',
     sidebarLines: [
-      '§7Player: §f{name}',
-      '§7Rank: §f{rank}',
-      '§7Balance: §a{symbol}{balance}',
+      '§7Server: §f{server}',
       '§7Online: §f{online}',
-      '§7Playtime: §f{playtime}',
+      '§7Use §b!info',
     ],
+    actionBarEnabled: true,
+    actionBarFormat: '§7{rank} §f{name}  §a{symbol}{balance}  §7{playtime}',
     hologramsEnabled: true,
 
     worldBorderEnabled: false,
