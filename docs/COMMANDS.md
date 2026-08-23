@@ -9,7 +9,7 @@ Every command works two ways:
 
 Arguments in `<angle brackets>` are required; `[square brackets]` are optional.
 
-There are **97 commands** across 12 categories.
+There are **102 commands** across 12 categories.
 
 ## Account
 
@@ -61,6 +61,7 @@ There are **97 commands** across 12 categories.
 | `!motd` | — | Show the server message of the day. |
 | `!nickcolor <code>` | — | Set the colour of your name in chat. |
 | `!playtime [player]` | — | Show how long you have played. |
+| `!quota` | — | Show how much of your daily block allowance is left. |
 | `!suite` <br>_aliases: `adminmenu`, `panel`_ | `menu.admin` | Open the admin panel. |
 | `!vault` <br>_aliases: `storage`_ | — | Open your personal vault. |
 
@@ -96,6 +97,7 @@ There are **97 commands** across 12 categories.
 | Command | Permission | Description |
 | --- | --- | --- |
 | `!give <player> <item> [amount]` | `players.give` | Admin: give an item to a player. |
+| `!resetquota <player>` | `players.view` | Admin: reset a player's daily block quota. |
 | `!viewvault <player>` | `players.enderchest` | Admin: inspect another player's vault. |
 
 ## Progression
@@ -119,8 +121,11 @@ There are **97 commands** across 12 categories.
 
 | Command | Permission | Description |
 | --- | --- | --- |
+| `!buycosmetic <cosmetic>` | — | Buy a cosmetic. |
+| `!cosmetics` <br>_aliases: `cosmetic`, `stylist`_ | — | List cosmetics you own and can buy. |
 | `!daily` | — | Claim your daily reward. |
 | `!delcode <code>` | `redeem.admin` | Admin: delete a redeem code. |
+| `!equip <cosmetic>` | — | Equip a cosmetic, or "none" to remove it. |
 | `!kit [name]` | — | Claim a kit, or list what is available. |
 | `!makecode <code> <money> [xp] [maxUses]` | `redeem.admin` | Admin: create a redeem code (money, xp and max uses). |
 | `!redeem <code>` | — | Redeem a code. |

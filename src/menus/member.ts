@@ -17,6 +17,7 @@ import { clanOf, clans } from '../modules/clans';
 import { prettyItemName } from '../core/items';
 import { codes } from '../modules/rewards';
 import { openVaultCommand } from '../modules/vault';
+import { cosmetics, equip as equipCosmetic, owns as ownsCosmetic, purchase as purchaseCosmetic } from '../modules/cosmetics';
 
 /** The player-facing menu opened by the Member Suite item. */
 
@@ -352,6 +353,7 @@ async function openRewards(player: Player): Promise<void> {
         },
       },
       { text: `${C.accent}Kits`, onClick: () => openKits(player) },
+      { text: `${C.gold}Cosmetics`, onClick: () => openCosmetics(player) },
       {
         text: `${C.gold}Redeem a code`,
         onClick: async () => {
@@ -370,6 +372,44 @@ async function openRewards(player: Player): Promise<void> {
       },
     ],
     back: () => openMemberMenu(player),
+  });
+}
+
+async function openCosmetics(player: Player): Promise<void> {
+  const profile = profileOf(player);
+  await paged(player, {
+    title: `${C.title}Cosmetics`,
+    body: `${C.dim}Balance: ${C.good}${money(balanceOf(profile))}`,
+    items: [
+      ...(profile.cosmeticEquipped ? [undefined] : []),
+      ...cosmetics.values(),
+    ],
+    render: (cosmetic) =>
+      cosmetic === undefined
+        ? { text: `${C.bad}Remove current cosmetic` }
+        : {
+            text: `${profile.cosmeticEquipped === cosmetic.id ? C.good : ownsCosmetic(player, cosmetic) ? C.accent : C.dim}${cosmetic.name}\n${C.dim}${cosmetic.kind} - ${
+              profile.cosmeticEquipped === cosmetic.id
+                ? 'equipped'
+                : ownsCosmetic(player, cosmetic)
+                  ? 'owned'
+                  : money(cosmetic.cost)
+            }`,
+          },
+    onPick: async (cosmetic) => {
+      if (cosmetic === undefined) {
+        equipCosmetic(player, undefined);
+        return ok(player, 'Cosmetic removed.');
+      }
+      if (!ownsCosmetic(player, cosmetic)) {
+        const problem = purchaseCosmetic(player, cosmetic);
+        if (problem) return err(player, problem);
+        ok(player, `Bought ${cosmetic.name}.`);
+      }
+      equipCosmetic(player, cosmetic.id);
+      ok(player, `Now wearing ${cosmetic.name}.`);
+    },
+    back: () => openRewards(player),
   });
 }
 

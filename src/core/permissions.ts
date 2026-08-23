@@ -24,7 +24,7 @@ export interface Role {
 
 /** Catalogue of every permission node the suite checks, grouped for the UI. */
 export const PERMISSION_GROUPS: Record<string, string[]> = {
-  General: ['menu.admin', 'menu.member', 'bypass.protection', 'bypass.cooldown'],
+  General: ['menu.admin', 'menu.member', 'bypass.protection', 'bypass.cooldown', 'bypass.quota'],
   Players: [
     'players.view',
     'players.teleport',
@@ -58,7 +58,7 @@ export const PERMISSION_GROUPS: Record<string, string[]> = {
   Teleport: ['tp.home', 'tp.warp', 'tp.warp.admin', 'tp.tpa', 'tp.rtp', 'tp.back'],
   Land: ['land.claim', 'land.admin'],
   Progression: ['ranks.admin', 'skills.use', 'jobs.use', 'quests.use', 'quests.admin'],
-  Content: ['npc.admin', 'hologram.admin', 'kit.admin', 'redeem.admin', 'broadcast.admin'],
+  Content: ['npc.admin', 'hologram.admin', 'kit.admin', 'redeem.admin', 'broadcast.admin', 'cosmetic.admin', 'cosmetic.staff'],
   Social: ['clan.use', 'clan.admin', 'duel.use'],
   Server: ['server.settings', 'server.roles', 'server.data'],
 };

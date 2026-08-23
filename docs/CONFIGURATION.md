@@ -68,11 +68,15 @@ Every setting lives in the world and is edited in-game through
 | `broadcastIntervalSeconds` | `number` | `300` |  |
 | `broadcastEnabled` | `boolean` | `true` |  |
 | `gravestonesEnabled` | `boolean` | `true` |  |
+| `cosmeticsEnabled` | `boolean` | `true` |  |
 | `duelsEnabled` | `boolean` | `true` |  |
 | `dailyRewardEnabled` | `boolean` | `true` |  |
 | `jobsEnabled` | `boolean` | `true` |  |
 | `skillsEnabled` | `boolean` | `true` |  |
 | `combatTagSeconds` | `number` | `10` |  |
+| `blockQuotaEnabled` | `boolean` | `false` | Daily block quotas (0 = unlimited) |
+| `blockQuotaMined` | `number` | `0` |  |
+| `blockQuotaPlaced` | `number` | `0` |  |
 
 ## Moderation
 

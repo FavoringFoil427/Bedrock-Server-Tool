@@ -12,6 +12,12 @@ import { ladder, rankOf } from './ranks';
 import { charge, money } from './economy';
 import { warps, goTo } from './teleport';
 import { jobs } from './jobs';
+import {
+  cosmetics,
+  equip as equipCosmetic,
+  owns as ownsCosmetic,
+  purchase as purchaseCosmetic,
+} from './cosmetics';
 
 /**
  * Interactive NPCs.
@@ -21,7 +27,8 @@ import { jobs } from './jobs';
  * they can be respawned if the entity is ever lost.
  */
 
-export type NpcRole = 'shop' | 'kits' | 'daily' | 'quests' | 'jobs' | 'warps' | 'rankshop' | 'info';
+export type NpcRole =
+  | 'shop' | 'kits' | 'daily' | 'quests' | 'jobs' | 'warps' | 'rankshop' | 'stylist' | 'info';
 
 export interface Npc {
   id: string;
@@ -46,6 +53,7 @@ const ROLE_LABELS: Record<NpcRole, string> = {
   jobs: 'Job Board',
   warps: 'Travel Agent',
   rankshop: 'Rank Shop',
+  stylist: 'The Stylist',
   info: 'Information',
 };
 
@@ -148,6 +156,40 @@ async function interact(player: Player, npc: Npc): Promise<void> {
               ok(player, `You are now ${rank.name}!`);
             },
           })),
+      });
+    }
+
+    case 'stylist': {
+      const profile = profileOf(player);
+      return menu(player, {
+        title: `${C.title}${npc.name}`,
+        body: `${C.dim}Buy and wear cosmetic effects.`,
+        buttons: [
+          {
+            text: profile.cosmeticEquipped ? `${C.bad}Remove current cosmetic` : `${C.dim}Nothing equipped`,
+            onClick: async () => {
+              if (!profile.cosmeticEquipped) return;
+              equipCosmetic(player, undefined);
+              ok(player, 'Cosmetic removed.');
+            },
+          },
+          ...cosmetics.values().map((cosmetic) => {
+            const owned = ownsCosmetic(player, cosmetic);
+            const worn = profile.cosmeticEquipped === cosmetic.id;
+            return {
+              text: `${worn ? C.good : owned ? C.accent : C.dim}${cosmetic.name}\n${C.dim}${cosmetic.kind} - ${worn ? 'equipped' : owned ? 'owned' : money(cosmetic.cost)}`,
+              onClick: async () => {
+                if (!owned) {
+                  const problem = purchaseCosmetic(player, cosmetic);
+                  if (problem) return err(player, problem);
+                  ok(player, `Bought ${cosmetic.name}.`);
+                }
+                equipCosmetic(player, cosmetic.id);
+                ok(player, `Now wearing ${cosmetic.name}.`);
+              },
+            };
+          }),
+        ],
       });
     }
 

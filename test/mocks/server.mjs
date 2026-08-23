@@ -36,12 +36,18 @@ export class Player {
     this.onScreenDisplay = { setActionBar() {}, setTitle() {} };
     this.inputPermissions = { setPermissionCategory() {} };
     this.messages = [];
+    this.tags = new Set();
   }
   sendMessage(m) { this.messages.push(m); }
   teleport() {}
+  getVelocity() { return { x: 0.2, y: 0, z: 0.2 }; }
+  getHeadLocation() { return { x: this.location.x, y: this.location.y + 1.6, z: this.location.z }; }
+  getViewDirection() { return { x: 0, y: 0, z: 1 }; }
   addEffect() {}
   removeEffect() {}
-  hasTag() { return false; }
+  hasTag(t) { return this.tags.has(t); }
+  addTag(t) { this.tags.add(t); return true; }
+  removeTag(t) { return this.tags.delete(t); }
   setGameMode() {}
   runCommand() { return { successCount: 1 }; }
   getComponent(id) {
@@ -65,8 +71,12 @@ class Dimension {
     return { nameTag: '', getDynamicProperty() {}, setDynamicProperty() {}, remove() {}, location: { x: 0, y: 0, z: 0 } };
   }
   spawnItem() {}
+  spawnParticle(id) { particles.push(id); }
   runCommand() { return { successCount: 1 }; }
 }
+
+/** Particle ids emitted this run, for assertions. */
+const particles = [];
 
 const overworld = new Dimension('minecraft:overworld');
 const dimensions = {
@@ -116,6 +126,7 @@ export const world = {
 
 let nextHandle = 1;
 export const system = {
+  currentTick: 0,
   intervals: [],
   timeouts: [],
   beforeEvents: { startup: signal(), shutdown: signal() },
@@ -150,5 +161,24 @@ export const CustomCommandSource = { Entity: 'Entity', Block: 'Block', Server: '
 export class CustomCommandOrigin {}
 export class Entity {}
 
+export class MolangVariableMap {
+  setColorRGB() {}
+  setColorRGBA() {}
+  setFloat() {}
+  setSpeedAndDirection() {}
+  setVector3() {}
+}
+
+/** A small set of real block ids is enough to exercise the quota check. */
+const KNOWN_BLOCKS = new Set([
+  'minecraft:stone', 'minecraft:dirt', 'minecraft:oak_log', 'minecraft:cobblestone',
+  'minecraft:glass', 'minecraft:iron_block', 'minecraft:sand',
+]);
+
+export class BlockTypes {
+  static get(typeName) { return KNOWN_BLOCKS.has(typeName) ? { id: typeName } : undefined; }
+  static getAll() { return [...KNOWN_BLOCKS].map((id) => ({ id })); }
+}
+
 /** Test-only helpers. */
-export const __test = { players, props, overworld, signal };
+export const __test = { players, props, overworld, signal, particles };

@@ -56,11 +56,17 @@ export interface Config {
   broadcastIntervalSeconds: number;
   broadcastEnabled: boolean;
   gravestonesEnabled: boolean;
+  cosmeticsEnabled: boolean;
   duelsEnabled: boolean;
   dailyRewardEnabled: boolean;
   jobsEnabled: boolean;
   skillsEnabled: boolean;
   combatTagSeconds: number;
+
+  /** Daily block quotas (0 = unlimited) */
+  blockQuotaEnabled: boolean;
+  blockQuotaMined: number;
+  blockQuotaPlaced: number;
 
   /** Moderation */
   antiSpamEnabled: boolean;
@@ -116,11 +122,16 @@ export function defaultConfig(): Config {
     broadcastIntervalSeconds: 300,
     broadcastEnabled: true,
     gravestonesEnabled: true,
+    cosmeticsEnabled: true,
     duelsEnabled: true,
     dailyRewardEnabled: true,
     jobsEnabled: true,
     skillsEnabled: true,
     combatTagSeconds: 10,
+
+    blockQuotaEnabled: false,
+    blockQuotaMined: 0,
+    blockQuotaPlaced: 0,
 
     antiSpamEnabled: true,
     antiSpamIntervalMs: 700,

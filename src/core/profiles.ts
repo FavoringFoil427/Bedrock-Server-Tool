@@ -58,6 +58,15 @@ export interface Profile {
   /** Set once the member book has been handed out. */
   gotMemberBook?: boolean;
 
+  /** Cosmetic ids the player has bought. */
+  cosmeticsOwned?: string[];
+  cosmeticEquipped?: string;
+
+  /** Calendar day the block quota counters belong to. */
+  quotaDay?: string;
+  quotaMined?: number;
+  quotaPlaced?: number;
+
   cooldowns: Record<string, number>;
   nameColor?: string;
 }

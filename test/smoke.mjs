@@ -139,6 +139,44 @@ try {
 }
 check('gameplay events handled without throwing', eventError === undefined, String(eventError));
 
+// Cosmetics and quotas, driven end to end through chat commands.
+const admin = new Player('Root', 'p-root');
+admin.tags.add('admin');
+__test.players.push(admin);
+world.afterEvents.playerSpawn.emit({ player: admin, initialSpawn: true });
+for (const t of system.timeouts.splice(0)) t.cb();
+
+const say = (who, message) => {
+  who.messages.length = 0;
+  world.beforeEvents.chatSend.emit({ sender: who, message, cancel: false });
+};
+
+say(player, '!quota');
+check('quota command replies', player.messages.length > 0);
+
+say(admin, '!eco give Steve 100000');
+say(player, '!balance');
+check('admin economy command took effect', player.messages.some((m) => /100,\d{3}|10[0-9],\d{3}/.test(m)),
+  player.messages.join(' | '));
+
+say(player, '!buycosmetic flame_trail');
+check('cosmetic purchased', player.messages.some((m) => /Bought/i.test(m)), player.messages.join(' | '));
+
+say(player, '!equip flame_trail');
+check('cosmetic equipped', player.messages.some((m) => /Now wearing/i.test(m)), player.messages.join(' | '));
+
+__test.particles.length = 0;
+for (const i of system.intervals) i.cb();
+check('equipped cosmetic emits particles', __test.particles.length > 0, `${__test.particles.length} emitted`);
+check('cosmetic uses the configured particle',
+  __test.particles.includes('minecraft:basic_flame_particle'),
+  [...new Set(__test.particles)].join(', '));
+
+say(player, '!equip none');
+__test.particles.length = 0;
+for (const i of system.intervals) i.cb();
+check('removing a cosmetic stops the particles', __test.particles.length === 0, `${__test.particles.length} emitted`);
+
 // Persistence must survive a shutdown/reload cycle.
 system.beforeEvents.shutdown.emit({});
 check('data was persisted to dynamic properties', __test.props.size > 0, `${__test.props.size} keys`);

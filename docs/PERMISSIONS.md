@@ -28,7 +28,7 @@ Two escape hatches exist:
 | **Builder** | 40 | `menu.admin`, `players.gamemode`, `world.time`, `world.weather`, `hologram.admin` |
 | **Member** _(default role)_ | 0 | `menu.member`, `economy.balance`, `economy.pay`, `shop.use`, `auction.use`, `tp.home` …(+10) |
 
-## All nodes (57)
+## All nodes (60)
 
 ### General
 
@@ -36,6 +36,7 @@ Two escape hatches exist:
 - `menu.member`
 - `bypass.protection`
 - `bypass.cooldown`
+- `bypass.quota`
 
 ### Players
 
@@ -107,6 +108,8 @@ Two escape hatches exist:
 - `kit.admin`
 - `redeem.admin`
 - `broadcast.admin`
+- `cosmetic.admin`
+- `cosmetic.staff`
 
 ### Social
 

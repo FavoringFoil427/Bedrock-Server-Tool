@@ -25,6 +25,8 @@ import * as stats from './modules/stats';
 import * as display from './modules/display';
 import * as broadcast from './modules/broadcast';
 import * as gravestone from './modules/gravestone';
+import * as cosmetics from './modules/cosmetics';
+import * as quota from './modules/quota';
 import * as registration from './modules/registration';
 import * as npc from './modules/npc';
 import * as vault from './modules/vault';
@@ -62,6 +64,8 @@ const MODULES = [
   display,
   broadcast,
   gravestone,
+  cosmetics,
+  quota,
   registration,
   vault,
   suite,

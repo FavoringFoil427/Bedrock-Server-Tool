@@ -836,6 +836,7 @@ async function openSettings(player: Player): Promise<void> {
             { kind: 'toggle', label: 'Require login', default: config.registrationRequired },
             { kind: 'toggle', label: 'Auto broadcasts', default: config.broadcastEnabled },
             { kind: 'toggle', label: 'Anti spam', default: config.antiSpamEnabled },
+            { kind: 'toggle', label: 'Cosmetics', default: config.cosmeticsEnabled },
           ]);
           if (!values) return;
           saveConfig((c) => {
@@ -852,6 +853,7 @@ async function openSettings(player: Player): Promise<void> {
             c.registrationRequired = Boolean(values[10]);
             c.broadcastEnabled = Boolean(values[11]);
             c.antiSpamEnabled = Boolean(values[12]);
+            c.cosmeticsEnabled = Boolean(values[13]);
           });
           ok(player, 'Features updated.');
         },
@@ -875,6 +877,24 @@ async function openSettings(player: Player): Promise<void> {
             c.claimBlocksDefault = Number.parseInt(String(values[4]), 10) || 2048;
           });
           ok(player, 'Saved.');
+        },
+      },
+      {
+        text: `${C.accent}Block quotas`,
+        onClick: async () => {
+          const current = cfg();
+          const values = await prompt(player, 'Daily block quotas', [
+            { kind: 'toggle', label: 'Enabled', default: current.blockQuotaEnabled },
+            { kind: 'text', label: 'Blocks broken per day (0 = unlimited)', default: String(current.blockQuotaMined) },
+            { kind: 'text', label: 'Blocks placed per day (0 = unlimited)', default: String(current.blockQuotaPlaced) },
+          ]);
+          if (!values) return;
+          saveConfig((c) => {
+            c.blockQuotaEnabled = Boolean(values[0]);
+            c.blockQuotaMined = Math.max(0, Number.parseInt(String(values[1]), 10) || 0);
+            c.blockQuotaPlaced = Math.max(0, Number.parseInt(String(values[2]), 10) || 0);
+          });
+          ok(player, 'Block quotas saved.');
         },
       },
       {

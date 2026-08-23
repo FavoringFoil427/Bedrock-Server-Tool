@@ -5,7 +5,7 @@ Script API. Roles and permissions for staff, moderation tools, an economy with
 a shop and auction house, land claims, progression systems, and a menu-driven
 interface for all of it.
 
-Everything is reachable three ways: a **form menu** (two in-game items), **97
+Everything is reachable three ways: a **form menu** (two in-game items), **102
 commands** in both chat (`!home`) and native (`/adm:home`) form, and
 **interactive NPCs** you place in the world.
 
@@ -56,10 +56,12 @@ the starter kit.
 | **Rewards** | Starter kits, daily reward streaks, configurable kits, redeemable codes |
 | **Social** | Clans with a shared bank and clan chat, wagered duels in a bounded ring |
 | **Display** | Custom chat format, custom nametags, scoreboard sidebar, per-player action bar, holograms with live leaderboards |
-| **Content** | Interactive NPCs (shopkeeper, kit master, daily rewards, job board, travel agent, rank shop), rotating broadcasts |
+| **Content** | Interactive NPCs (shopkeeper, kit master, daily rewards, job board, travel agent, rank shop, stylist), rotating broadcasts |
+| **Cosmetics** | Buyable particle trails, auras and halos on a shared, throttled render loop |
 | **Accounts** | Optional password gate on join |
 | **Gravestones** | Inventories survive lava, the void and `/kill`; recover with `!grave` |
 | **Combat tagging** | Trading hits blocks teleport escapes for a configurable window |
+| **Block quotas** | Optional daily break/place limits per player, with staff bypass |
 | **Vaults** | Inspectable per-player server-side storage |
 | **Languages** | English, Indonesian and Spanish included, with a drop-in framework for more |
 
@@ -82,7 +84,7 @@ it has never been promoted to the stable surface. Four features depend on it:
 
 **Everything else works without it.** If Beta APIs are off, the addon detects
 this at startup, logs a notice, disables just those four features and keeps
-running — all 97 commands remain available in their `/adm:` form.
+running — all 102 commands remain available in their `/adm:` form.
 
 To build a pack that declares only the stable module:
 
@@ -122,7 +124,7 @@ on the world.
 
 Minecraft cannot be launched from CI, so `npm run test` builds the bundle
 against mock implementations of `@minecraft/server` and `@minecraft/server-ui`
-and executes it in Node. It verifies that the bundle loads, registers all 97
+and executes it in Node. It verifies that the bundle loads, registers all 102
 native commands, wires its event handlers and background loops, round-trips a
 chat command end to end, handles gameplay events, and persists data across a
 shutdown.
