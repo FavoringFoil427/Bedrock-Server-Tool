@@ -39,6 +39,10 @@ export interface Config {
   sidebarLines: string[];
   hologramsEnabled: boolean;
 
+  /** World border (soft border enforced by script) */
+  worldBorderEnabled: boolean;
+  worldBorderRadius: number;
+
   /** Systems */
   registrationRequired: boolean;
   broadcastIntervalSeconds: number;
@@ -96,6 +100,9 @@ export function defaultConfig(): Config {
       '§7Playtime: §f{playtime}',
     ],
     hologramsEnabled: true,
+
+    worldBorderEnabled: false,
+    worldBorderRadius: 5000,
 
     registrationRequired: false,
     broadcastIntervalSeconds: 300,
