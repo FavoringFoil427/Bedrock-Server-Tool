@@ -10,8 +10,8 @@ import {
   now,
   ok,
   overworld,
-  parseDuration,
   runCommand,
+  splitDurationReason,
   tell,
   uid,
 } from '../core/util';
@@ -168,8 +168,7 @@ export function install(): void {
       if (!target) return err(player, t('err.playerNotFound'));
       if (target.id === player.id) return err(player, t('err.selfTarget'));
 
-      const duration = args[1] ? parseDuration(args[1]) : undefined;
-      const reason = args[2] || 'No reason given';
+      const { duration, reason } = splitDurationReason(args[1], args[2]);
       banProfile(target, player.name, reason, duration);
       ok(player, `Banned ${target.name}${duration ? ` for ${formatDuration(duration)}` : ' permanently'}.`);
       notifyStaff(`${player.name} banned ${target.name}: ${reason}`);
@@ -221,9 +220,9 @@ export function install(): void {
     handler: ({ player, args }) => {
       const target = profileByName(args[0] ?? '');
       if (!target) return err(player, t('err.playerNotFound'));
-      const duration = args[1] ? parseDuration(args[1]) : undefined;
+      const { duration, reason } = splitDurationReason(args[1], args[2]);
       target.muteUntil = duration === undefined ? 0 : now() + duration;
-      target.muteReason = args[2] || 'No reason given';
+      target.muteReason = reason;
       profiles.markDirty();
       ok(player, `Muted ${target.name}${duration ? ` for ${formatDuration(duration)}` : ' permanently'}.`);
       const online = onlinePlayer(target);

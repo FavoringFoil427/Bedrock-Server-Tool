@@ -112,6 +112,25 @@ export function parseDuration(input: string): number | undefined {
   return amount * (scale[unit] ?? 6e4);
 }
 
+/**
+ * Splits the trailing `[duration] [reason]` pair used by ban and mute.
+ *
+ * The duration is optional, so `ban Steve griefing` must read "griefing" as
+ * the reason rather than silently discarding it as an unparseable duration.
+ */
+export function splitDurationReason(
+  first: string | undefined,
+  rest: string | undefined,
+): { duration?: number; reason: string } {
+  const parsed = first ? parseDuration(first) : undefined;
+  if (parsed !== undefined) {
+    return { duration: parsed, reason: (rest || '').trim() || 'No reason given' };
+  }
+  // `first` was not a duration, so it is the start of the reason.
+  const reason = [first, rest].filter(Boolean).join(' ').trim();
+  return { reason: reason || 'No reason given' };
+}
+
 export function formatNumber(value: number): string {
   return Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }

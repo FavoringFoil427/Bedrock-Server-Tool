@@ -73,8 +73,18 @@ export function usageOf(command: CommandDef): string {
 
 /** Declares a command. Must be called before the startup event fires. */
 export function register(command: CommandDef): void {
+  // A silent overwrite would drop a whole feature's command, so it is loud.
+  if (registry.has(command.name) || aliasMap.has(command.name)) {
+    console.warn(`[AdminSuite] duplicate command name "${command.name}" - the earlier one is being replaced.`);
+  }
   registry.set(command.name, command);
-  for (const alias of command.aliases ?? []) aliasMap.set(alias, command.name);
+  for (const alias of command.aliases ?? []) {
+    if (registry.has(alias) || aliasMap.has(alias)) {
+      console.warn(`[AdminSuite] alias "${alias}" of "${command.name}" collides with an existing command.`);
+      continue;
+    }
+    aliasMap.set(alias, command.name);
+  }
   if (startupDone) {
     console.warn(`[AdminSuite] command "${command.name}" registered after startup; chat-only.`);
   }

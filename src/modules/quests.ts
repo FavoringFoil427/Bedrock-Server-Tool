@@ -195,12 +195,13 @@ export function install(): void {
             : `${C.warn}${have}/${quest.amount}`;
         player.sendMessage(`  ${C.accent}${quest.id} ${C.dim}- ${quest.description} ${state}`);
       }
-      player.sendMessage(`${C.dim}Use !claim <id> to collect a finished quest.`);
+      player.sendMessage(`${C.dim}Use !questclaim <id> to collect a finished quest.`);
     },
   });
 
   register({
-    name: 'claim',
+    name: 'questclaim',
+    aliases: ['qclaim'],
     description: 'Claim a finished quest.',
     category: 'Progression',
     permission: 'quests.use',

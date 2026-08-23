@@ -8,7 +8,8 @@
     "watch": "node build.mjs --watch",
     "package": "node build.mjs --package",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm run build"
+    "check": "npm run typecheck && npm run test && npm run build",
+    "test": "node test/smoke.mjs"
   },
   "devDependencies": {
     "@minecraft/server": "2.9.0",
