@@ -159,6 +159,32 @@ A few decisions worth knowing:
   sidebar rows carry only server-wide values and each player's own figures go to
   their action bar instead.
 
+### Adding a language
+
+English, Indonesian and Spanish ship in `src/core/i18n.ts`. A locale only needs
+the keys it translates — anything missing falls back to English, so a partial
+translation is always safe:
+
+```ts
+import { registerLocale } from './core/i18n';
+
+registerLocale('fr', {
+  'err.noPermission': "Vous n'avez pas la permission de faire cela.",
+  'err.playerNotFound': 'Joueur introuvable.',
+});
+```
+
+New locales appear automatically in the language dropdown under
+**Admin Suite -> Server Settings -> General**.
+
+### Adding a feature
+
+Each system is one file in `src/modules/` exporting `install()`, added to the
+`MODULES` list in `src/main.ts`. Declare commands with `register()`, add any new
+permission nodes to `PERMISSION_GROUPS` in `src/core/permissions.ts` so they
+appear in the role editor, and persist state with a `Table` from
+`src/core/storage.ts`.
+
 ---
 
 ## Known platform limits

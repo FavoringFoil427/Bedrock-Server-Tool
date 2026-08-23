@@ -102,10 +102,6 @@ export function profileOf(player: Player): Profile {
   return profile;
 }
 
-export function profileById(id: string): Profile | undefined {
-  return profiles.get(id);
-}
-
 /** Looks up a profile by name, including players who are currently offline. */
 export function profileByName(name: string): Profile | undefined {
   const needle = name.toLowerCase();

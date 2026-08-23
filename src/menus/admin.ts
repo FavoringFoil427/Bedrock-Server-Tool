@@ -24,6 +24,7 @@ import { codes, kits } from '../modules/rewards';
 import { ladder } from '../modules/ranks';
 import { availableLocales } from '../core/i18n';
 import { inventoryOf } from '../core/items';
+import { resetProgress } from '../modules/quests';
 import { openVaultFor } from '../modules/vault';
 
 /** The staff menu opened by the Admin Suite item. */
@@ -931,6 +932,8 @@ async function openData(player: Player): Promise<void> {
           const yes = await confirm(player, 'Reset player', `Wipe all stored data for ${target.name}? This cannot be undone.`);
           if (!yes) return;
           profiles.delete(target.id);
+          // Quest progress lives in its own table and would otherwise be orphaned.
+          resetProgress(target.id);
           ok(player, `${target.name}'s data was reset.`);
         },
       },

@@ -8,6 +8,7 @@ import { register } from '../core/commands';
 import { t } from '../core/i18n';
 import { C, err, now, ok, stripColor, tell } from '../core/util';
 import { isMuted, notifyStaff } from './moderation';
+import { isAuthenticated } from './registration';
 
 /**
  * Chat pipeline: mute enforcement, anti-spam, word filtering and the custom
@@ -30,6 +31,7 @@ function reject(player: Player, message: string): string | undefined {
   const profile = profileOf(player);
   const config = cfg();
 
+  if (!isAuthenticated(player)) return t('err.notRegistered', { prefix: config.commandPrefix });
   if (isMuted(profile)) return t('mod.muted');
   if (message.length > config.maxMessageLength) return `Messages are limited to ${config.maxMessageLength} characters.`;
 

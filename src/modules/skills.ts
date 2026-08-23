@@ -105,10 +105,6 @@ export function addSkillXp(player: Player, skillId: string, amount: number): voi
   }
 }
 
-export function skillLevel(player: Player, skillId: string): number {
-  return levelOf(profileOf(player).skills[skillId] ?? 0);
-}
-
 export function install(): void {
   register({
     name: 'skills',

@@ -55,6 +55,17 @@ export interface CommandDef {
   handler: (ctx: CommandContext) => void | Promise<void>;
 }
 
+/**
+ * Optional gate consulted before any command runs. The login module installs
+ * one; it lives here as a hook so `commands` needs no dependency on it.
+ * Returning false means the command was refused and already explained why.
+ */
+let gate: ((player: Player, command: CommandDef) => boolean) | undefined;
+
+export function setCommandGate(fn: (player: Player, command: CommandDef) => boolean): void {
+  gate = fn;
+}
+
 const registry = new Map<string, CommandDef>();
 const aliasMap = new Map<string, string>();
 let startupDone = false;
@@ -125,6 +136,7 @@ function nativeArgToString(value: unknown): string {
 }
 
 function dispatch(command: CommandDef, player: Player, args: string[], rest: string): void {
+  if (gate && !gate(player, command)) return;
   if (command.permission && !can(player, command.permission)) {
     err(player, t('err.noPermission'));
     return;
@@ -223,11 +235,6 @@ export function installChatCommands(): void {
       dispatch(command, player, args, tokens.join(' '));
     });
   });
-}
-
-/** True when `!command` style input is usable in this world. */
-export function chatCommandsEnabled(): boolean {
-  return chatAvailable();
 }
 
 /** Sends the grouped command list (`!info`). */

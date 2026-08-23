@@ -55,26 +55,11 @@ export function uid(): string {
   return `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 }
 
-export function clamp(value: number, min: number, max: number): number {
-  return value < min ? min : value > max ? max : value;
-}
-
 export function distance(a: Vector3, b: Vector3): number {
   const dx = a.x - b.x;
   const dy = a.y - b.y;
   const dz = a.z - b.z;
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
-}
-
-/** Horizontal-only distance, used by land claims and battle arenas. */
-export function distance2d(a: Vector3, b: Vector3): number {
-  const dx = a.x - b.x;
-  const dz = a.z - b.z;
-  return Math.sqrt(dx * dx + dz * dz);
-}
-
-export function floorVec(v: Vector3): Vector3 {
-  return { x: Math.floor(v.x), y: Math.floor(v.y), z: Math.floor(v.z) };
 }
 
 export function formatVec(v: Vector3): string {
@@ -142,15 +127,6 @@ export function stripColor(text: string): string {
 
 export function overworld(): Dimension {
   return world.getDimension('overworld');
-}
-
-export function findPlayer(name: string): Player | undefined {
-  const needle = name.toLowerCase();
-  const players = world.getAllPlayers();
-  return (
-    players.find((p) => p.name.toLowerCase() === needle) ??
-    players.find((p) => p.name.toLowerCase().includes(needle))
-  );
 }
 
 /** Safe wrapper for `runCommand`, which throws on malformed input. */

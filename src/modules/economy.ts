@@ -1,10 +1,8 @@
-import { Player } from '@minecraft/server';
 import { register } from '../core/commands';
 import { cfg } from '../core/config';
 import { Profile, profileByName, profileOf, profiles, onlinePlayer } from '../core/profiles';
 import { t } from '../core/i18n';
 import { C, err, formatNumber, ok, tell } from '../core/util';
-import { can } from '../core/permissions';
 
 /** Central money API. Every other module goes through these helpers. */
 
@@ -155,9 +153,4 @@ export function install(): void {
       ok(player, `${target.name} now has ${money(balanceOf(target))}.`);
     },
   });
-}
-
-/** True when the player may edit other people's balances. */
-export function isEconomyAdmin(player: Player): boolean {
-  return can(player, 'economy.admin');
 }

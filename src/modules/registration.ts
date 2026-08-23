@@ -1,5 +1,5 @@
 import { InputPermissionCategory, Player, system, world } from '@minecraft/server';
-import { register } from '../core/commands';
+import { register, setCommandGate } from '../core/commands';
 import { cfg } from '../core/config';
 import { profileOf, profiles } from '../core/profiles';
 import { askText } from '../core/ui';
@@ -92,6 +92,15 @@ async function challenge(player: Player): Promise<void> {
 }
 
 export function install(): void {
+  // Until a player is through the gate, only the account commands work.
+  const ALLOWED_WHILE_LOCKED = new Set(['register', 'login', 'info', 'help', 'commands']);
+  setCommandGate((player, command) => {
+    if (isAuthenticated(player)) return true;
+    if (ALLOWED_WHILE_LOCKED.has(command.name)) return true;
+    err(player, t('err.notRegistered', { prefix: cfg().commandPrefix }));
+    return false;
+  });
+
   register({
     name: 'register',
     description: 'Create your account password.',
