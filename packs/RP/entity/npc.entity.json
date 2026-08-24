@@ -3,11 +3,9 @@
   "minecraft:client_entity": {
     "description": {
       "identifier": "adm:npc",
-      "materials": { "default": "villager_v2" },
-      "textures": { "default": "textures/entity/villager_v2/professions/farmer" },
-      "geometry": { "default": "geometry.villager_v2.unskilled" },
-      "scripts": { "pre_animation": ["variable.ground_speed = 0.0;"] },
-      "animations": { "look_at_target": "animation.common.look_at_target" },
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/adm_npc" },
+      "geometry": { "default": "geometry.adm_npc" },
       "render_controllers": ["controller.render.adm_default"]
     }
   }

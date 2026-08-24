@@ -149,9 +149,16 @@ native commands, wires its event handlers and background loops, round-trips a
 chat command end to end, handles gameplay events, and persists data across a
 shutdown.
 
-This catches load-order faults and startup crashes, but it is not a substitute
-for playing the pack — behaviour that depends on real world state still needs
-in-game testing.
+The mocks reproduce the engine's early-execution restriction, so code that
+reads storage at module scope fails here rather than in a world. The test also
+validates pack assets that no compiler can see: item icons resolving through
+the atlas to a real PNG, translations existing for each identifier, item
+schemas staying within a supported baseline, and every entity geometry,
+texture and render controller resolving to something the pack actually defines.
+
+This catches load-order faults, startup crashes and dangling asset references,
+but it is not a substitute for playing the pack — behaviour that depends on
+real world state still needs in-game testing.
 
 ---
 
@@ -174,6 +181,11 @@ A few decisions worth knowing:
 - **Commands** are declared once and exposed both as native custom commands and
   as chat commands. Handlers always run deferred through `system.run`, because
   both entry points fire in a read-only context where world mutation throws.
+- **Startup is two-phase.** The engine rejects world state access during early
+  execution, and a throw there aborts the whole script before any command is
+  registered. A module's `install()` may only register commands and subscribe
+  to events; anything touching storage belongs in `init()`, which runs on the
+  first tick.
 - **Module order matters** in `src/main.ts`: `land` installs PvP protection that
   `duels` deliberately overrides, and `combat` loads after `duels` so duellists
   are exempt from combat tagging.

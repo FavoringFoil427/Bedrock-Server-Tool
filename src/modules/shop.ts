@@ -102,8 +102,12 @@ export function sell(player: Player, entry: ShopEntry, bundles = 1): string | un
   return undefined;
 }
 
-export function install(): void {
+/** Deferred setup. Runs on the first tick, when world state is reachable. */
+export function init(): void {
   ensureDefaultShop();
+}
+
+export function install(): void {
 
   register({
     name: 'shop',

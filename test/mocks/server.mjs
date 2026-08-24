@@ -91,6 +91,19 @@ const dimensions = {
 const props = new Map();
 const players = [];
 
+/**
+ * The engine forbids touching world state while the script is still loading
+ * (and during the startup event). Reproducing that here is the only way this
+ * harness can catch code that reads storage at module scope.
+ */
+let earlyExecution = true;
+
+function assertNotEarly(what) {
+  if (earlyExecution) {
+    throw new ReferenceError(`Native function [World::${what}] cannot be used in early execution.`);
+  }
+}
+
 class ScoreboardObjective {
   constructor(id, displayName) { this.id = id; this.displayName = displayName; this.scores = new Map(); }
   getParticipants() { return []; }
@@ -120,8 +133,11 @@ export const world = {
   setDifficulty() {},
   sendMessage(m) { world.broadcasts.push(m); },
   broadcasts: [],
-  getDynamicProperty(k) { return props.get(k); },
-  setDynamicProperty(k, v) { if (v === undefined) props.delete(k); else props.set(k, v); },
+  getDynamicProperty(k) { assertNotEarly('getDynamicProperty'); return props.get(k); },
+  setDynamicProperty(k, v) {
+    assertNotEarly('setDynamicProperty');
+    if (v === undefined) props.delete(k); else props.set(k, v);
+  },
 };
 
 let nextHandle = 1;
@@ -130,7 +146,9 @@ export const system = {
   intervals: [],
   timeouts: [],
   beforeEvents: { startup: signal(), shutdown: signal() },
-  run(cb) { cb(); return nextHandle++; },
+  // Real system.run defers to the next tick, after early execution ends.
+  pending: [],
+  run(cb) { system.pending.push(cb); return nextHandle++; },
   runTimeout(cb, ticks) { system.timeouts.push({ cb, ticks }); return nextHandle++; },
   runInterval(cb, ticks) { system.intervals.push({ cb, ticks }); return nextHandle++; },
   clearRun() {},
@@ -181,4 +199,16 @@ export class BlockTypes {
 }
 
 /** Test-only helpers. */
-export const __test = { players, props, overworld, signal, particles };
+/**
+ * Ends early execution and drains queued work, the way the first tick does.
+ * Callbacks may queue more work, so this loops until quiet.
+ */
+function flush() {
+  earlyExecution = false;
+  for (let guard = 0; guard < 50 && system.pending.length; guard++) {
+    const queued = system.pending.splice(0);
+    for (const cb of queued) cb();
+  }
+}
+
+export const __test = { players, props, overworld, signal, particles, flush };

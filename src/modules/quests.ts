@@ -175,8 +175,12 @@ function advance(player: Player, kind: ObjectiveKind, targetId: string): void {
   if (changed) progressTable.markDirty();
 }
 
-export function install(): void {
+/** Deferred setup. Runs on the first tick, when world state is reachable. */
+export function init(): void {
   ensureDefaultQuests();
+}
+
+export function install(): void {
 
   register({
     name: 'quests',

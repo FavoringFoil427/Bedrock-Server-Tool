@@ -44,7 +44,19 @@ import * as suite from './modules/suite';
  * `duels` so duellists are exempt from combat tagging, and `suite` registers
  * the menu items that the NPC module opens.
  */
-const MODULES = [
+/**
+ * A module's `install()` may only register commands and subscribe to events:
+ * both are legal while the script is still loading. Anything that reads or
+ * writes world state belongs in `init()`, which runs on the first tick — the
+ * engine rejects dynamic property access during early execution, and a throw
+ * there aborts the whole script before any commands are registered.
+ */
+interface Module {
+  install(): void;
+  init?: () => void;
+}
+
+const MODULES: Module[] = [
   economy,
   shop,
   teleport,
@@ -85,9 +97,11 @@ for (const module of MODULES) module.install();
 installNativeCommands();
 
 system.run(() => {
+  // Early execution is over; world state is reachable from here on.
   ensureDefaultRoles();
+  for (const module of MODULES) module.init?.();
+
   installChatCommands();
-  land.reindex();
   display.rebuildHolograms();
 
   for (const player of world.getAllPlayers()) profileOf(player);

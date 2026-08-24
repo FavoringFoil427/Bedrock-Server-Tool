@@ -129,8 +129,12 @@ export function dailyReward(streak: number): Reward {
   return reward(200 * day, 25 * day, day >= 7 ? [['minecraft:diamond', 3]] : [['minecraft:gold_ingot', day]]);
 }
 
-export function install(): void {
+/** Deferred setup. Runs on the first tick, when world state is reachable. */
+export function init(): void {
   ensureDefaultKits();
+}
+
+export function install(): void {
 
   register({
     name: 'kit',

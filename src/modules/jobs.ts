@@ -135,8 +135,12 @@ function payFor(player: Player, trigger: Job['trigger'], targetId: string): void
   profiles.markDirty();
 }
 
-export function install(): void {
+/** Deferred setup. Runs on the first tick, when world state is reachable. */
+export function init(): void {
   ensureDefaultJobs();
+}
+
+export function install(): void {
 
   register({
     name: 'jobs',

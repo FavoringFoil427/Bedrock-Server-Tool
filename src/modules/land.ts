@@ -107,8 +107,12 @@ function protect(player: Player, location: Vector3): boolean {
   return true;
 }
 
-export function install(): void {
+/** Deferred setup. Runs on the first tick, when world state is reachable. */
+export function init(): void {
   reindex();
+}
+
+export function install(): void {
 
   register({
     name: 'claim',

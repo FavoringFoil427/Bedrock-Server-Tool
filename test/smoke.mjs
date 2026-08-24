@@ -62,21 +62,42 @@ globalThis.console = {
 };
 
 console.log('loading bundle...');
-await import(outfile);
+// Module scope runs under early execution, exactly as the engine does it.
+let loadError;
+try {
+  await import(outfile);
+} catch (error) {
+  loadError = error;
+}
 const realConsole = globalThis.console;
 globalThis.console = { log: (...a) => process.stdout.write(a.join(' ') + '\n'), warn: realConsole.warn, error: realConsole.error };
 
 console.log('\nresults:');
-check('bundle loaded without throwing', true);
+check('bundle loads without touching world state', loadError === undefined, String(loadError ?? ''));
 
-// Startup event: native command registration must run here.
+// Startup event: native command registration must run here, still early.
 const registered = [];
-system.beforeEvents.startup.emit({
+let startupError;
+try {
+  system.beforeEvents.startup.emit({
   customCommandRegistry: {
     registerCommand(def) { registered.push(def); },
-    registerEnum() {},
-  },
-});
+      registerEnum() {},
+    },
+  });
+} catch (error) {
+  startupError = error;
+}
+check('startup completes without touching world state', startupError === undefined, String(startupError ?? ''));
+
+// First tick: early execution ends and deferred initialisation runs.
+let initError;
+try {
+  __test.flush();
+} catch (error) {
+  initError = error;
+}
+check('deferred initialisation runs cleanly on the first tick', initError === undefined, String(initError ?? ''));
 check('native commands registered at startup', registered.length > 50, `got ${registered.length}`);
 check('every native command is namespaced', registered.every((c) => c.name.startsWith('adm:')));
 check(
@@ -97,6 +118,7 @@ const player = new Player('Steve', 'p-steve');
 __test.players.push(player);
 world.afterEvents.playerSpawn.emit({ player, initialSpawn: true });
 for (const t of system.timeouts.splice(0)) t.cb();
+__test.flush();
 check('join produced messages to the player', player.messages.length > 0, `got ${player.messages.length}`);
 
 // Run every scheduled interval once; none should throw.
@@ -112,17 +134,20 @@ check('all background loops run without throwing', intervalError === undefined, 
 player.messages.length = 0;
 const chatEvent = { sender: player, message: '!balance', cancel: false };
 world.beforeEvents.chatSend.emit(chatEvent);
+__test.flush();
 check('chat command was intercepted', chatEvent.cancel === true);
 check('chat command produced a reply', player.messages.length > 0, `got ${player.messages.length}`);
 
 // An unknown command should be reported, not crash.
 player.messages.length = 0;
 world.beforeEvents.chatSend.emit({ sender: player, message: '!definitelynotacommand', cancel: false });
+__test.flush();
 check('unknown command handled', player.messages.some((m) => /unknown command/i.test(m)));
 
 // Normal chat should be reformatted rather than passed through untouched.
 const normal = { sender: player, message: 'hello world', cancel: false };
 world.beforeEvents.chatSend.emit(normal);
+__test.flush();
 check('normal chat is formatted', normal.cancel === true && world.broadcasts.some((m) => m.includes('hello world')));
 
 // Gameplay events must not throw.
@@ -146,10 +171,12 @@ admin.tags.add('admin');
 __test.players.push(admin);
 world.afterEvents.playerSpawn.emit({ player: admin, initialSpawn: true });
 for (const t of system.timeouts.splice(0)) t.cb();
+__test.flush();
 
 const say = (who, message) => {
   who.messages.length = 0;
   world.beforeEvents.chatSend.emit({ sender: who, message, cancel: false });
+  __test.flush();
 };
 
 say(player, '!quota');
@@ -180,6 +207,7 @@ check('removing a cosmetic stops the particles', __test.particles.length === 0, 
 
 // Persistence must survive a shutdown/reload cycle.
 system.beforeEvents.shutdown.emit({});
+__test.flush();
 check('data was persisted to dynamic properties', __test.props.size > 0, `${__test.props.size} keys`);
 check('profile data round-trips', [...__test.props.keys()].some((k) => k.startsWith('adm:profiles')));
 
@@ -245,6 +273,58 @@ for (const file of await readdir(itemDir)) {
   // A literal display_name silently defeats the lang lookup.
   check(`${id}: no conflicting display_name component`,
     item.components['minecraft:display_name'] === undefined);
+}
+
+/*
+ * Client entities point at geometry, textures and render controllers by name.
+ * A name that resolves to nothing produces an invisible entity and a content
+ * log error, with no sign of trouble anywhere in the script.
+ */
+const rpDir = path.join(packsDir, 'RP');
+
+async function collectJson(dir) {
+  const out = [];
+  if (!existsSync(dir)) return out;
+  for (const item of await readdir(dir, { withFileTypes: true })) {
+    const full = path.join(dir, item.name);
+    if (item.isDirectory()) out.push(...(await collectJson(full)));
+    else if (item.name.endsWith('.json')) out.push(full);
+  }
+  return out;
+}
+
+// Every geometry identifier the resource pack defines.
+const geometryIds = new Set();
+for (const file of await collectJson(path.join(rpDir, 'models'))) {
+  const model = JSON.parse(await readFile(file, 'utf8'));
+  for (const geo of model['minecraft:geometry'] ?? []) {
+    if (geo.description?.identifier) geometryIds.add(geo.description.identifier);
+  }
+}
+
+// Every render controller the resource pack defines.
+const controllerIds = new Set();
+for (const file of await collectJson(path.join(rpDir, 'render_controllers'))) {
+  const doc = JSON.parse(await readFile(file, 'utf8'));
+  for (const id of Object.keys(doc.render_controllers ?? {})) controllerIds.add(id);
+}
+
+for (const file of await collectJson(path.join(rpDir, 'entity'))) {
+  const description = JSON.parse(await readFile(file, 'utf8'))['minecraft:client_entity']?.description;
+  if (!description) continue;
+  const id = description.identifier;
+
+  for (const [slot, geometry] of Object.entries(description.geometry ?? {})) {
+    check(`${id}: geometry "${geometry}" (${slot}) is defined`, geometryIds.has(geometry),
+      `not found in RP models - the entity would render as nothing`);
+  }
+  for (const [slot, texture] of Object.entries(description.textures ?? {})) {
+    check(`${id}: texture ${texture} (${slot}) exists`, existsSync(path.join(rpDir, `${texture}.png`)));
+  }
+  for (const controller of description.render_controllers ?? []) {
+    const name = typeof controller === 'string' ? controller : Object.keys(controller)[0];
+    check(`${id}: render controller "${name}" is defined`, controllerIds.has(name));
+  }
 }
 
 await rm(outDir, { recursive: true, force: true });
