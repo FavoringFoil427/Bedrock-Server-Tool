@@ -10,7 +10,7 @@ import { claimKit, dailyReward, grant, kits } from './rewards';
 import { formatDuration } from '../core/util';
 import { ladder, rankOf } from './ranks';
 import { charge, money } from './economy';
-import { warps, goTo } from './teleport';
+import { warps, travelToWarp } from './teleport';
 import { jobOf, jobs, jobsEnabled } from './jobs';
 import {
   cosmetics,
@@ -135,9 +135,10 @@ async function interact(player: Player, npc: Npc): Promise<void> {
         buttons: warps.values().map((warp) => ({
           text: `${C.accent}${warp.name}${warp.cost > 0 ? `\n${C.dim}${money(warp.cost)}` : ''}`,
           onClick: async () => {
-            const profile = profileOf(player);
-            if (warp.cost > 0 && !charge(profile, warp.cost)) return err(player, `You need ${money(warp.cost)}.`);
-            goTo(player, warp);
+            // Through the shared route, so cost, cooldown, combat and freeze
+            // all apply exactly as they do from the command.
+            const problem = await travelToWarp(player, warp);
+            if (problem) return err(player, problem);
             ok(player, `Warped to ${warp.name}.`);
           },
         })),

@@ -10,8 +10,9 @@ import {
   acceptTeleportRequest,
   denyTeleportRequest,
   goBack,
-  goTo,
   goToSpawn,
+  travelHome,
+  travelToWarp,
   hasPendingRequest,
   randomTeleport,
   sendTeleportRequest,
@@ -329,8 +330,9 @@ async function openHomes(player: Player): Promise<void> {
       ...names.map((name) => ({
         text: `${C.accent}${name}\n${C.dim}${formatVec(profile.homes[name])}`,
         onClick: async () => {
-          goTo(player, profile.homes[name]);
-          ok(player, `Teleported home (${name}).`);
+          const problem = await travelHome(player, name);
+          if (problem) err(player, problem);
+          else ok(player, `Teleported home (${name}).`);
         },
       })),
       {
@@ -375,8 +377,9 @@ async function openWarps(player: Player): Promise<void> {
       text: `${C.accent}${warp.name}${warp.cost > 0 ? `\n${C.dim}${money(warp.cost)}` : ''}`,
     }),
     onPick: async (warp) => {
-      goTo(player, warp);
-      ok(player, `Warped to ${warp.name}.`);
+      const problem = await travelToWarp(player, warp);
+      if (problem) err(player, problem);
+      else ok(player, `Warped to ${warp.name}.`);
     },
     back: () => openMemberMenu(player),
   });

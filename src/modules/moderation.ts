@@ -16,6 +16,7 @@ import {
   uid,
 } from '../core/util';
 import { can } from '../core/permissions';
+import { isSuiteItem } from '../core/items';
 
 /** Bans, mutes, freezing, vanish, staff spy and the player report queue. */
 
@@ -98,13 +99,34 @@ export function setFrozen(player: Player, frozen: boolean): void {
   tell(player, frozen ? `${C.bad}` + t('mod.frozen') : `${C.good}You are no longer frozen.`);
 }
 
+/**
+ * Locks down a player's input while frozen.
+ *
+ * The camera goes too: being able to look around is enough to spot staff
+ * approaching, line up a shot, or read a base's layout, none of which somebody
+ * under investigation should be doing.
+ */
 function applyFreeze(player: Player, frozen: boolean): void {
-  try {
-    player.inputPermissions.setPermissionCategory(InputPermissionCategory.Movement, !frozen);
-    player.inputPermissions.setPermissionCategory(InputPermissionCategory.Jump, !frozen);
-  } catch (error) {
-    console.warn(`[AdminSuite] could not toggle movement: ${error}`);
+  const categories = [
+    InputPermissionCategory.Movement,
+    InputPermissionCategory.Jump,
+    InputPermissionCategory.Camera,
+    InputPermissionCategory.Sneak,
+    InputPermissionCategory.Mount,
+    InputPermissionCategory.Dismount,
+  ];
+  for (const category of categories) {
+    try {
+      player.inputPermissions.setPermissionCategory(category, !frozen);
+    } catch {
+      // Older clients may not expose every category; the rest still apply.
+    }
   }
+}
+
+/** True when this player is currently frozen. */
+export function isFrozen(player: Player): boolean {
+  return profiles.get(player.id)?.frozen === true;
 }
 
 export function setVanished(player: Player, vanished: boolean): void {
@@ -344,6 +366,36 @@ export function install(): void {
     }
     if (profile.frozen) applyFreeze(player, true);
     if (profile.vanished) setVanished(player, true);
+  });
+
+  /*
+   * A frozen player must not be able to act on the world. Input permissions
+   * cover movement and looking, but breaking, placing, interacting and
+   * attacking all arrive as events and have to be refused individually.
+   */
+  world.beforeEvents.playerBreakBlock.subscribe((event) => {
+    if (!isFrozen(event.player)) return;
+    event.cancel = true;
+    const player = event.player;
+    system.run(() => player.onScreenDisplay.setActionBar(`${C.bad}You are frozen`));
+  });
+
+  world.beforeEvents.playerInteractWithBlock.subscribe((event) => {
+    if (!isFrozen(event.player)) return;
+    // The menu items stay usable, so a frozen player can still read why.
+    if (isSuiteItem(event.itemStack?.typeId)) return;
+    event.cancel = true;
+  });
+
+  world.beforeEvents.playerInteractWithEntity.subscribe((event) => {
+    if (!isFrozen(event.player)) return;
+    if (isSuiteItem(event.itemStack?.typeId)) return;
+    event.cancel = true;
+  });
+
+  world.beforeEvents.entityHurt.subscribe((event) => {
+    const attacker = event.damageSource.damagingEntity;
+    if (attacker instanceof Player && isFrozen(attacker)) event.cancel = true;
   });
 
   // A frozen player who somehow moves is pulled back to where they were.

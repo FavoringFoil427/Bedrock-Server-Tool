@@ -17,6 +17,7 @@ import { C, distance, err, formatDuration, formatVec, ok, tell } from '../core/u
 import { can } from '../core/permissions';
 import { charge, money } from './economy';
 import { blockedByCombat } from './combat';
+import { isFrozen } from './moderation';
 
 /**
  * Movement systems: homes, warps, player-to-player requests, random teleport
@@ -63,7 +64,17 @@ export function goTo(player: Player, target: StoredLocation): boolean {
  * when the teleport should proceed.
  */
 export function warmup(player: Player): Promise<boolean> {
-  // Every teleport funnels through here, so the combat gate lives here too.
+  /*
+   * Every teleport funnels through here, so the gates live here too.
+   *
+   * Freezing somebody is pointless if they can simply !home out of it, and
+   * unlike the combat gate this one has no bypass: staff freeze people
+   * precisely so they cannot leave.
+   */
+  if (isFrozen(player)) {
+    err(player, 'You are frozen and cannot teleport.');
+    return Promise.resolve(false);
+  }
   if (blockedByCombat(player)) return Promise.resolve(false);
 
   const seconds = cfg().tpaWarmupSeconds;
@@ -104,6 +115,34 @@ export function gate(player: Player, profile: Profile, key: string, seconds: num
   return true;
 }
 
+/**
+ * Travels to one of the player's homes, applying the warmup and every gate.
+ * Returns an error string, or undefined on success.
+ */
+export async function travelHome(player: Player, name: string): Promise<string | undefined> {
+  const profile = profileOf(player);
+  const key = (name || 'home').toLowerCase();
+  const target = profile.homes[key];
+  if (!target) return t('home.missing', { name: key });
+  if (!(await warmup(player))) return undefined;
+  return goTo(player, target) ? undefined : 'The teleport failed.';
+}
+
+/**
+ * Travels to a server warp, charging its cost and applying the cooldown.
+ * Returns an error string, or undefined on success.
+ */
+export async function travelToWarp(player: Player, warp: Warp): Promise<string | undefined> {
+  if (warp.permission && !can(player, warp.permission)) return t('err.noPermission');
+
+  const profile = profileOf(player);
+  if (!gate(player, profile, 'warp', cfg().warpCooldownSeconds)) return undefined;
+
+  if (warp.cost > 0 && !charge(profile, warp.cost)) return `That warp costs ${money(warp.cost)}.`;
+  if (!(await warmup(player))) return undefined;
+  return goTo(player, warp) ? undefined : 'The teleport failed.';
+}
+
 /* ------------------------------------------------------------------ homes */
 
 export function homeLimit(player: Player): number {
@@ -137,12 +176,10 @@ function installHomes(): void {
     permission: 'tp.home',
     args: [{ name: 'name', type: 'string', optional: true }],
     handler: async ({ player, args }) => {
-      const profile = profileOf(player);
       const name = (args[0] || 'home').toLowerCase();
-      const target = profile.homes[name];
-      if (!target) return err(player, t('home.missing', { name }));
-      if (!(await warmup(player))) return;
-      if (goTo(player, target)) ok(player, `Welcome home (${name}).`);
+      const problem = await travelHome(player, name);
+      if (problem) return err(player, problem);
+      ok(player, `Welcome home (${name}).`);
     },
   });
 
@@ -202,18 +239,9 @@ function installWarps(): void {
       const needle = args[0].toLowerCase();
       const warp = all.find((w) => w.name.toLowerCase() === needle);
       if (!warp) return err(player, `No warp called "${args[0]}".`);
-      if (warp.permission && !can(player, warp.permission)) return err(player, t('err.noPermission'));
-
-      const profile = profileOf(player);
-      if (!gate(player, profile, 'warp', cfg().warpCooldownSeconds)) return;
-
-      if (warp.cost > 0) {
-        if (!charge(profile, warp.cost)) {
-          return err(player, `That warp costs ${money(warp.cost)}.`);
-        }
-      }
-      if (!(await warmup(player))) return;
-      if (goTo(player, warp)) ok(player, `Warped to ${warp.name}.`);
+      const problem = await travelToWarp(player, warp);
+      if (problem) return err(player, problem);
+      ok(player, `Warped to ${warp.name}.`);
     },
   });
 

@@ -428,6 +428,44 @@ check('a shulker funnelled through a hopper is removed', hopperSlots[0] === unde
 check('the funnel exploit was reported', /hopper|shulker/i.test(admin.messages.join(' | ')),
   admin.messages.join(' | '));
 
+// Freezing has to actually hold a player: input, world actions and the exits.
+say(admin, `!freeze ${player.name}`);
+check('freeze reports success', admin.messages.some((m) => /now frozen/i.test(m)),
+  admin.messages.join(' | '));
+
+// Category 2 is Movement, 1 is Camera, 6 is Jump.
+check('movement is locked', player.lockedInput.get(2) === false);
+check('the camera is locked so they cannot look around', player.lockedInput.get(1) === false);
+check('jumping is locked', player.lockedInput.get(6) === false);
+
+const frozenBreak = {
+  player,
+  block: { typeId: 'minecraft:dirt', location: { x: 1, y: 64, z: 1 } },
+  cancel: false,
+};
+world.beforeEvents.playerBreakBlock.emit(frozenBreak);
+__test.flush();
+check('a frozen player cannot break blocks', frozenBreak.cancel === true);
+
+const frozenHit = {
+  hurtEntity: admin,
+  damageSource: { damagingEntity: player },
+  cancel: false,
+};
+world.beforeEvents.entityHurt.emit(frozenHit);
+__test.flush();
+check('a frozen player cannot attack', frozenHit.cancel === true);
+
+// The real escape: teleporting out of a freeze would defeat the whole point.
+say(player, '!sethome frozenspot');
+say(player, '!home frozenspot');
+check('a frozen player cannot teleport away',
+  player.messages.some((m) => /frozen and cannot teleport/i.test(m)),
+  player.messages.join(' | '));
+
+say(admin, `!freeze ${player.name}`);
+check('unfreezing restores the camera', player.lockedInput.get(1) === true);
+
 // Minecart chest dupe: two removals at one spot inside the window. This runs
 // off the before-event, because the after-event carries no location at all.
 const cartAt = { x: 10, y: 64, z: 10 };

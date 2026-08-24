@@ -192,6 +192,12 @@ A few decisions worth knowing:
 - **Module order matters** in `src/main.ts`: `land` installs PvP protection that
   `duels` deliberately overrides, and `combat` loads after `duels` so duellists
   are exempt from combat tagging.
+- **A freeze actually holds.** Movement, jumping, sneaking, mounting and the
+  camera are all locked, and breaking, placing, interacting and attacking are
+  refused. Teleporting is refused too, with no bypass: staff freeze somebody
+  precisely so they cannot leave, and every teleport route in the addon -
+  command, menu and NPC alike - goes through one gated function so none of them
+  can quietly become an exit.
 - **The resource pack declares PBR compatibility.** A pack that declares
   neither the `pbr` capability nor an addon `product_type` silently caps the
   whole game at Fancy graphics, so Vibrant Visuals cannot be turned on. Nothing

@@ -34,7 +34,10 @@ export class Player {
     this.location = { x: 0, y: 64, z: 0 };
     this.dimension = overworld;
     this.onScreenDisplay = { setActionBar() {}, setTitle() {} };
-    this.inputPermissions = { setPermissionCategory() {} };
+    this.lockedInput = new Map();
+    this.inputPermissions = {
+      setPermissionCategory: (category, enabled) => { this.lockedInput.set(category, enabled); },
+    };
     this.messages = [];
     this.tags = new Set();
     // A real slot array, so inventory maths is actually exercised.
