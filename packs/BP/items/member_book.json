@@ -6,11 +6,9 @@
       "menu_category": { "category": "items", "group": "itemGroup.name.miscellaneous" }
     },
     "components": {
-      "minecraft:display_name": { "value": "item.adm.member_book" },
-      "minecraft:icon": { "textures": { "default": "adm_member_book" } },
+      "minecraft:icon": { "texture": "adm_member_book" },
       "minecraft:max_stack_size": 1,
-      "minecraft:hand_equipped": true,
-      "minecraft:should_despawn": false
+      "minecraft:hand_equipped": true
     }
   }
 }

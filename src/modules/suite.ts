@@ -1,4 +1,4 @@
-import { Player, world } from '@minecraft/server';
+import { Player, system, world } from '@minecraft/server';
 import { register } from '../core/commands';
 import { can } from '../core/permissions';
 import { giveItem, makeStack } from '../core/items';
@@ -89,19 +89,53 @@ export function install(): void {
     },
   });
 
-  // Right-clicking either item opens the matching menu.
-  world.afterEvents.itemUse.subscribe((event) => {
-    const player = event.source;
-    const typeId = event.itemStack.typeId;
-
+  /**
+   * Opens the menu bound to a suite item. Returns true when the item was one
+   * of ours, so the caller can swallow the interaction.
+   */
+  const openFor = (player: Player, typeId: string | undefined): boolean => {
     if (typeId === ADMIN_ITEM) {
       if (!can(player, 'menu.admin')) {
         tell(player, `${C.bad}You do not have permission to use this.`);
-        return;
+        return true;
       }
       void openAdminMenu(player);
-      return;
+      return true;
     }
-    if (typeId === MEMBER_ITEM) void openMemberMenu(player);
+    if (typeId === MEMBER_ITEM) {
+      void openMemberMenu(player);
+      return true;
+    }
+    return false;
+  };
+
+  // Using the item while aiming at air.
+  world.afterEvents.itemUse.subscribe((event) => {
+    openFor(event.source, event.itemStack.typeId);
+  });
+
+  /*
+   * Using it while aiming at a block raises this instead of itemUse, which is
+   * what happens most of the time in practice. Without this the menu would
+   * only open when the player happened to be facing the sky.
+   */
+  world.beforeEvents.playerInteractWithBlock.subscribe((event) => {
+    const typeId = event.itemStack?.typeId;
+    if (typeId !== ADMIN_ITEM && typeId !== MEMBER_ITEM) return;
+    // Stop the item being placed or the block being activated.
+    event.cancel = true;
+    const player = event.player;
+    system.run(() => openFor(player, typeId));
+  });
+
+  // Same again for aiming at an entity, so the menu is never swallowed.
+  world.beforeEvents.playerInteractWithEntity.subscribe((event) => {
+    const typeId = event.itemStack?.typeId;
+    if (typeId !== ADMIN_ITEM && typeId !== MEMBER_ITEM) return;
+    // NPCs have their own menu; opening both at once would fight for the screen.
+    if (event.target.typeId === 'adm:npc') return;
+    event.cancel = true;
+    const player = event.player;
+    system.run(() => openFor(player, typeId));
   });
 }

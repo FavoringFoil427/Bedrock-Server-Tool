@@ -1,4 +1,12 @@
+## Item names. The engine looks these up as item.<namespace>:<identifier>,
+## so the key must contain the colon from the item's identifier.
+item.adm:admin_suite=Admin Suite
+item.adm:member_book=Member Suite
+
+## Some versions resolve the name through a dotted key instead; harmless to
+## keep both so the name renders either way.
 item.adm.admin_suite=Admin Suite
 item.adm.member_book=Member Suite
+
 pack.name=Admin Suite - Server Tools
 pack.description=Resources for the Admin Suite server management toolkit.

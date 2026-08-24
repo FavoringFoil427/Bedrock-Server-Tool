@@ -13,8 +13,8 @@ commands** in both chat (`!home`) and native (`/adm:home`) form, and
 
 ## Quick start
 
-1. Download `AdminSuite-v1.0.0.mcaddon` from `dist/` (or build it — see below)
-   and open it. Minecraft installs both packs.
+1. Download the latest `AdminSuite-v<version>.mcaddon` from the Releases page
+   (or build it — see below) and open it. Minecraft installs both packs.
 2. Create your world with:
    - **Beta APIs** — ON (see [Why Beta APIs](#why-beta-apis))
    - **Cheats** — ON

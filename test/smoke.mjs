@@ -7,7 +7,8 @@
  * and command registration problems before the pack ever reaches a world.
  */
 import * as esbuild from 'esbuild';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -189,6 +190,45 @@ check('no unexpected warnings during startup', warnings.length === 0, warnings.s
 console.log(`\n  ${registered.length} native commands registered`);
 console.log(`  ${system.intervals.length} background loops`);
 console.log(`  ${__test.props.size} persisted storage keys`);
+
+/* ------------------------------------------------------------ pack assets */
+
+/*
+ * The script can be flawless while the pack still renders as an invisible item
+ * with a debug name, because names and icons resolve entirely through resource
+ * pack lookups that nothing else validates.
+ */
+console.log('\npack integrity:');
+
+const packsDir = path.join(ROOT, 'packs');
+const itemDir = path.join(packsDir, 'BP', 'items');
+const atlas = JSON.parse(await readFile(path.join(packsDir, 'RP', 'textures', 'item_texture.json'), 'utf8'));
+const lang = await readFile(path.join(packsDir, 'RP', 'texts', 'en_US.lang'), 'utf8');
+
+for (const file of await readdir(itemDir)) {
+  const item = JSON.parse(await readFile(path.join(itemDir, file), 'utf8'))['minecraft:item'];
+  const id = item.description.identifier;
+  const icon = item.components['minecraft:icon'];
+
+  // The icon component must name a key that the atlas actually defines.
+  const shorthand = typeof icon === 'string' ? icon : (icon?.texture ?? icon?.textures?.default);
+  check(`${id}: icon names an atlas key`, Boolean(shorthand), JSON.stringify(icon));
+  check(`${id}: atlas defines "${shorthand}"`, Boolean(atlas.texture_data?.[shorthand]));
+
+  const texturePath = atlas.texture_data?.[shorthand]?.textures;
+  if (texturePath) {
+    const onDisk = path.join(packsDir, 'RP', `${texturePath}.png`);
+    check(`${id}: ${texturePath}.png exists`, existsSync(onDisk));
+  }
+
+  // The engine looks the name up by the identifier, colon included.
+  check(`${id}: has a translation for "item.${id}"`, lang.includes(`item.${id}=`),
+    'missing lang key - the item would show a debug name');
+
+  // A literal display_name silently defeats the lang lookup.
+  check(`${id}: no conflicting display_name component`,
+    item.components['minecraft:display_name'] === undefined);
+}
 
 await rm(outDir, { recursive: true, force: true });
 
