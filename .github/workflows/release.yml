@@ -50,11 +50,6 @@ jobs:
           echo "value=${version}" >> "$GITHUB_OUTPUT"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
-      # Both extensions are published: .mcaddon installs behaviour and resource
-      # packs together, while some tools expect the .mcpack name.
-      - name: Duplicate as .mcpack
-        run: cp "dist/AdminSuite-v${{ steps.version.outputs.value }}.mcaddon" "dist/AdminSuite-v${{ steps.version.outputs.value }}.mcpack"
-
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
@@ -62,14 +57,20 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: Admin Suite v${{ steps.version.outputs.value }}
           generate_release_notes: true
+          # npm run package writes all three; the .mcpack files are built
+          # separately rather than renamed, since their layouts differ.
           files: |
             dist/AdminSuite-v${{ steps.version.outputs.value }}.mcaddon
-            dist/AdminSuite-v${{ steps.version.outputs.value }}.mcpack
+            dist/AdminSuite-BehaviourPack-v${{ steps.version.outputs.value }}.mcpack
+            dist/AdminSuite-ResourcePack-v${{ steps.version.outputs.value }}.mcpack
           body: |
             ## Admin Suite v${{ steps.version.outputs.value }}
 
             Download **`AdminSuite-v${{ steps.version.outputs.value }}.mcaddon`** below and open it —
-            Minecraft installs both the behaviour and resource pack.
+            Minecraft installs both the behaviour and resource pack together.
+
+            The two `.mcpack` files are the same packs separately, for installing
+            one side at a time. You do not need them if you use the `.mcaddon`.
 
             ### Setup
 

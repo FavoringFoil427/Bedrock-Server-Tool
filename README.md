@@ -114,6 +114,26 @@ npm run package    # produces dist/AdminSuite-v<version>.mcaddon
 | `npm run test` | Smoke test (see below) |
 | `npm run docs` | Regenerate the reference docs from the source |
 
+### Pack formats
+
+`npm run package` writes three files, and they are **not** interchangeable:
+
+| File | Contains | Use it when |
+| --- | --- | --- |
+| `AdminSuite-v<version>.mcaddon` | both packs, each in its own folder | normal install — this is the one you want |
+| `AdminSuite-BehaviourPack-v<version>.mcpack` | the behaviour pack alone, manifest at the archive root | installing one side at a time |
+| `AdminSuite-ResourcePack-v<version>.mcpack` | the resource pack alone, manifest at the archive root | installing one side at a time |
+
+Renaming one format to the other does not work: a `.mcpack` must have its
+`manifest.json` at the root of the archive, while a `.mcaddon` has none there
+and holds a folder per pack.
+
+> **Downloading the repository as a ZIP and renaming it will not work either.**
+> The source tree has no built script in `packs/BP/scripts/` — it is produced by
+> `npm run build` — so the manifest would point at a `main.js` that does not
+> exist, and GitHub's ZIP additionally wraps everything in an extra top-level
+> folder. Use a packaged file from the Releases page, or build one yourself.
+
 ### Installing a dev build manually
 
 Copy `dist/BP` into `development_behavior_packs/` and `dist/RP` into

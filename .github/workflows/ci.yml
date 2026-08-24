@@ -33,5 +33,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: mcaddon
-          path: dist/*.mcaddon
+          name: packs
+          path: |
+            dist/*.mcaddon
+            dist/*.mcpack

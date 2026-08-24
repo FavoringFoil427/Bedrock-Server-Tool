@@ -64,20 +64,47 @@ async function collect(dir, prefix) {
   const entries = [];
   for (const item of await readdir(dir, { withFileTypes: true })) {
     const full = path.join(dir, item.name);
-    const name = `${prefix}/${item.name}`;
+    const name = prefix ? `${prefix}/${item.name}` : item.name;
     if (item.isDirectory()) entries.push(...(await collect(full, name)));
     else entries.push({ name, data: await readFile(full) });
   }
   return entries;
 }
 
+/**
+ * Writes the distributable archives.
+ *
+ * The two formats are not interchangeable. A `.mcaddon` bundles several packs,
+ * each in its own folder, and installs them together. A `.mcpack` is a single
+ * pack whose `manifest.json` sits at the archive root. Renaming one to the
+ * other produces a file Minecraft refuses to import, so each is built from its
+ * own entry list.
+ */
 async function archive() {
-  const out = path.join(DIST, `AdminSuite-v${pkg.version}.mcaddon`);
-  await rm(out, { force: true });
-  // A .mcaddon is a plain zip holding both pack folders.
-  const entries = [...(await collect(path.join(DIST, 'BP'), 'BP')), ...(await collect(path.join(DIST, 'RP'), 'RP'))];
-  await writeFile(out, createZip(entries));
-  console.log(`packaged -> ${path.relative(ROOT, out)} (${entries.length} files)`);
+  const written = [];
+
+  const addon = path.join(DIST, `AdminSuite-v${pkg.version}.mcaddon`);
+  await rm(addon, { force: true });
+  const bundled = [
+    ...(await collect(path.join(DIST, 'BP'), 'BP')),
+    ...(await collect(path.join(DIST, 'RP'), 'RP')),
+  ];
+  await writeFile(addon, createZip(bundled));
+  written.push([addon, bundled.length]);
+
+  // Individual packs, for installing one side at a time.
+  for (const [folder, label] of [['BP', 'BehaviourPack'], ['RP', 'ResourcePack']]) {
+    const out = path.join(DIST, `AdminSuite-${label}-v${pkg.version}.mcpack`);
+    await rm(out, { force: true });
+    // Note the empty prefix: the manifest must land at the archive root.
+    const entries = await collect(path.join(DIST, folder), '');
+    await writeFile(out, createZip(entries));
+    written.push([out, entries.length]);
+  }
+
+  for (const [file, count] of written) {
+    console.log(`packaged -> ${path.relative(ROOT, file)} (${count} files)`);
+  }
 }
 
 if (watch) {
