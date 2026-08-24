@@ -213,9 +213,16 @@ export const system = {
   // Real system.run defers to the next tick, after early execution ends.
   pending: [],
   run(cb) { system.pending.push(cb); return nextHandle++; },
-  runTimeout(cb, ticks) { system.timeouts.push({ cb, ticks }); return nextHandle++; },
-  runInterval(cb, ticks) { system.intervals.push({ cb, ticks }); return nextHandle++; },
-  clearRun() {},
+  runTimeout(cb, ticks) { const handle = nextHandle++; system.timeouts.push({ cb, ticks, handle }); return handle; },
+  runInterval(cb, ticks) { const handle = nextHandle++; system.intervals.push({ cb, ticks, handle }); return handle; },
+  // Cancelling really removes the callback, so a self-cancelling interval
+  // (the teleport warmup, for one) stops here exactly as it does in game.
+  clearRun(handle) {
+    for (const list of [system.timeouts, system.intervals]) {
+      const index = list.findIndex((entry) => entry.handle === handle);
+      if (index >= 0) list.splice(index, 1);
+    }
+  },
 };
 
 export class ItemStack {

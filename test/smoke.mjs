@@ -319,6 +319,114 @@ say(player, '!delpwarp SkyMarket');
 check('owner can remove their warp', player.messages.some((m) => /Removed/i.test(m)),
   player.messages.join(' | '));
 
+/**
+ * Server warps must be creatable from the admin menu itself - a warp list with
+ * no way to add to it can only ever be empty - and whatever staff create there
+ * has to be the same list ordinary players see in the member menu.
+ */
+const menus = await import(path.join(ROOT, 'test', 'mocks', 'server-ui.mjs'));
+const { __ui } = menus;
+
+/** Reads a player's balance back out of `!balance`. */
+function balanceNow(who) {
+  const saved = [...who.messages];
+  who.messages.length = 0;
+  world.beforeEvents.chatSend.emit({ sender: who, message: '!balance', cancel: false });
+  __test.flush();
+  const text = who.messages.join(' ');
+  who.messages.length = 0;
+  who.messages.push(...saved);
+  const found = /([\d,]+)/.exec(text.replace(/[^\d,]/g, ' '));
+  return found ? Number(found[1].replace(/,/g, '')) : NaN;
+}
+
+/**
+ * Lets the fire-and-forget menu promise chain settle between clicks. Pending
+ * timeouts are fired too, so waits like the teleport warmup elapse.
+ */
+async function settle() {
+  for (let i = 0; i < 20; i++) {
+    __test.flush();
+    for (const t of system.timeouts.splice(0)) t.cb();
+    for (const t of [...system.intervals]) t.cb();
+    await new Promise((r) => setImmediate(r));
+  }
+}
+
+__ui.reset();
+admin.messages.length = 0;
+// Admin Suite -> Content -> Warps
+__ui.click(/Content/);
+__ui.click(/Warps/);
+await settle();
+world.beforeEvents.chatSend.emit({ sender: admin, message: '!suite', cancel: false });
+await settle();
+
+const warpButtons = __ui.lastButtons();
+check('the admin warp list offers a create button',
+  warpButtons.some((b) => /Create a warp here/i.test(b)), warpButtons.join(' | '));
+check('an empty warp list says so instead of looking broken',
+  /No warps yet/i.test(__ui.lastBody()), JSON.stringify(__ui.lastBody()));
+
+// Click it and fill the form in.
+__ui.reset();
+admin.messages.length = 0;
+__ui.click(/Create a warp here/);
+__ui.submit('Market', '25');
+await settle();
+world.beforeEvents.chatSend.emit({ sender: admin, message: '!suite', cancel: false });
+__ui.reset();
+__ui.click(/Content/);
+__ui.click(/Warps/);
+__ui.click(/Create a warp here/);
+__ui.submit('Market', '25');
+await settle();
+
+check('the create button actually creates the warp',
+  admin.messages.some((m) => /Market.*created/i.test(m)), admin.messages.join(' | '));
+
+// The member menu must show that same warp - one table, two surfaces.
+__ui.reset();
+member.messages.length = 0;
+__ui.click(/Warps/);
+await settle();
+world.beforeEvents.chatSend.emit({ sender: member, message: '!menu', cancel: false });
+await settle();
+
+const memberWarps = __ui.lastButtons();
+check('an admin-made warp appears in the member menu',
+  memberWarps.some((b) => /Market/.test(b)), memberWarps.join(' | '));
+check('the member menu shows the warp cost the admin set',
+  memberWarps.some((b) => /Market/.test(b) && /25/.test(b)), memberWarps.join(' | '));
+
+// And it must be reachable, not just listed.
+__ui.reset();
+member.messages.length = 0;
+const memberBalanceBefore = balanceNow(member);
+__ui.click(/Warps/);
+__ui.click(/Market/);
+await settle();
+world.beforeEvents.chatSend.emit({ sender: member, message: '!menu', cancel: false });
+await settle();
+check('a member can travel to an admin-made warp from the menu',
+  member.messages.some((m) => /Warped to Market/i.test(m)), member.messages.join(' | '));
+// Arriving means arriving: the warp's own coordinates, not merely a message.
+const marketWarp = { x: admin.location.x, y: admin.location.y, z: admin.location.z };
+check('travelling actually moves the member to the warp',
+  Math.abs(member.location.x - marketWarp.x) < 0.01
+  && Math.abs(member.location.z - marketWarp.z) < 0.01,
+  `member at ${member.location.x},${member.location.z} vs warp ${marketWarp.x},${marketWarp.z}`);
+// The listed cost must really be taken out of their balance.
+check('the warp cost is charged on arrival', memberBalanceBefore - balanceNow(member) === 25,
+  `${memberBalanceBefore} -> ${balanceNow(member)}`);
+
+// The same warp is visible to the plain command too, so both paths agree.
+say(member, '!warp');
+check('an admin-made warp is listed by !warp',
+  member.messages.some((m) => /Market/.test(m)), member.messages.join(' | '));
+
+__ui.reset();
+
 // The starter kit is handed out on first join while it is switched on.
 const fresh = new Player('Fresh', 'p-fresh');
 __test.players.push(fresh);

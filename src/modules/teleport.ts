@@ -219,6 +219,33 @@ function installHomes(): void {
 
 /* ------------------------------------------------------------------ warps */
 
+/**
+ * Creates or replaces a server warp where the player is standing. Shared by
+ * `!setwarp` and the admin menu's create button so the two cannot drift apart.
+ * Returns a problem string, or the warp and whether it replaced an older one.
+ */
+export function createWarp(
+  player: Player,
+  name: string,
+  cost: number,
+): string | { warp: Warp; replaced: boolean } {
+  const clean = name.trim();
+  if (clean.length === 0) return 'A warp needs a name.';
+  if (clean.length > 24) return 'That name is too long - 24 characters at most.';
+
+  // Names are matched case-insensitively, so the lowercased name is the id.
+  const id = clean.toLowerCase();
+  const replaced = warps.has(id);
+  const warp: Warp = {
+    id,
+    name: clean,
+    cost: Math.max(0, Math.floor(cost) || 0),
+    ...locationOf(player),
+  };
+  warps.set(id, warp);
+  return { warp, replaced };
+}
+
 function installWarps(): void {
   register({
     name: 'warp',
@@ -255,11 +282,9 @@ function installWarps(): void {
       { name: 'cost', type: 'int', optional: true },
     ],
     handler: ({ player, args }) => {
-      const name = args[0] ?? '';
-      const cost = Number.parseInt(args[1] ?? '0', 10) || 0;
-      const id = name.toLowerCase();
-      warps.set(id, { id, name, cost, ...locationOf(player) });
-      ok(player, `Warp "${name}" saved.`);
+      const result = createWarp(player, args[0] ?? '', Number.parseInt(args[1] ?? '0', 10) || 0);
+      if (typeof result === 'string') return err(player, result);
+      ok(player, `Warp "${result.warp.name}" ${result.replaced ? 'moved here' : 'saved'}.`);
     },
   });
 

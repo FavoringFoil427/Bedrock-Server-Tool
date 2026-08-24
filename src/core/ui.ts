@@ -165,6 +165,10 @@ export interface PagedOptions<T> {
   onPick: (item: T) => void | Promise<void>;
   back?: () => void | Promise<void>;
   page?: number;
+  /** Buttons pinned above the list, shown on the first page only. */
+  actions?: MenuButton[];
+  /** Shown in place of the list when there is nothing to list. */
+  empty?: string;
 }
 
 /**
@@ -177,14 +181,15 @@ export async function paged<T>(player: Player, options: PagedOptions<T>): Promis
   const current = Math.min(page, pages - 1);
   const slice = options.items.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE);
 
-  const buttons: MenuButton[] = slice.map((item) => {
+  const buttons: MenuButton[] = current === 0 ? [...(options.actions ?? [])] : [];
+  for (const item of slice) {
     const rendered = options.render(item);
-    return {
+    buttons.push({
       text: rendered.text,
       ...(rendered.icon ? { icon: rendered.icon } : {}),
       onClick: () => options.onPick(item),
-    };
-  });
+    });
+  }
 
   if (current > 0) {
     buttons.push({
@@ -200,7 +205,10 @@ export async function paged<T>(player: Player, options: PagedOptions<T>): Promis
   }
 
   const header = pages > 1 ? `${C.dim}Page ${current + 1}/${pages}` : '';
-  const body = [options.body, header].filter(Boolean).join('\n');
+  // An empty list otherwise renders as a form with nothing but a Back button,
+  // which reads as broken rather than empty.
+  const empty = options.items.length === 0 ? (options.empty ?? '') : '';
+  const body = [options.body, empty, header].filter(Boolean).join('\n');
 
   await menu(player, {
     title: options.title,

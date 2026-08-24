@@ -368,10 +368,15 @@ async function openHomes(player: Player): Promise<void> {
   });
 }
 
+/**
+ * Server warps, exactly as staff created them: this reads the same `warps`
+ * table the admin menu writes to, so a new warp shows up here immediately.
+ */
 async function openWarps(player: Player): Promise<void> {
   const list = warps.values();
   await paged(player, {
     title: `${C.title}Warps`,
+    empty: `${C.dim}Staff have not created any warps yet.`,
     items: list,
     render: (warp) => ({
       text: `${C.accent}${warp.name}${warp.cost > 0 ? `\n${C.dim}${money(warp.cost)}` : ''}`,

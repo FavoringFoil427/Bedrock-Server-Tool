@@ -17,7 +17,7 @@ import { addMoney, balanceOf, money, setMoney } from '../modules/economy';
 import { activeBan, bans, banProfile, kickPlayer, reports, setFrozen, setVanished } from '../modules/moderation';
 import { cleanEntities, setTime, setWeather } from '../modules/worldtools';
 import { holograms } from '../modules/display';
-import { warps } from '../modules/teleport';
+import { createWarp, locationOf, warps } from '../modules/teleport';
 import { playerWarps, popularWarps, removePlayerWarp } from '../modules/playerwarps';
 import { claims } from '../modules/land';
 import { shopItems, unlist } from '../modules/shop';
@@ -894,6 +894,68 @@ async function openPermissionGroup(player: Player, role: Role, group: string, no
 
 /* ------------------------------------------------------------------ content */
 
+/**
+ * Server warps. Admins create them here; every player sees the same list in
+ * the member menu's Warps section, since both read the one `warps` table.
+ */
+async function openWarps(player: Player): Promise<void> {
+  await paged(player, {
+    title: `${C.title}Warps`,
+    body: `${C.dim}Server warps. Every player can travel to these from the member menu.`,
+    empty: `${C.dim}No warps yet. Stand where you want one and create it.`,
+    actions: [
+      {
+        text: `${C.good}+ Create a warp here`,
+        icon: 'textures/ui/adm_warp',
+        onClick: () => createWarpHere(player),
+      },
+    ],
+    items: warps.values(),
+    render: (warp) => ({
+      text: `${C.accent}${warp.name}\n${C.dim}cost ${warp.cost}`,
+      icon: 'textures/ui/adm_warp',
+    }),
+    onPick: async (warp) => {
+      const values = await prompt(player, warp.name, [
+        { kind: 'text', label: 'Cost', default: String(warp.cost) },
+        { kind: 'toggle', label: 'Move it to where I am standing', default: false },
+        { kind: 'toggle', label: 'Delete this warp', default: false },
+      ]);
+      if (!values) return openWarps(player);
+      if (values[2]) {
+        warps.delete(warp.id);
+        ok(player, 'Warp deleted.');
+        return openWarps(player);
+      }
+      warp.cost = Number.parseInt(String(values[0]), 10) || 0;
+      if (values[1]) Object.assign(warp, locationOf(player));
+      warps.markDirty();
+      ok(player, values[1] ? 'Warp updated and moved here.' : 'Warp updated.');
+      return openWarps(player);
+    },
+    back: () => openContent(player),
+  });
+}
+
+/** Creates a warp where the admin is standing, then returns to the list. */
+async function createWarpHere(player: Player): Promise<void> {
+  const values = await prompt(player, `${C.title}Create warp`, [
+    { kind: 'text', label: 'Name', placeholder: 'spawn' },
+    { kind: 'text', label: 'Cost to use (0 is free)', default: '0' },
+  ]);
+  if (!values) return openWarps(player);
+
+  const result = createWarp(player, String(values[0]), Number.parseInt(String(values[1]), 10) || 0);
+  if (typeof result === 'string') {
+    err(player, result);
+    return openWarps(player);
+  }
+  ok(player, result.replaced
+    ? `Warp "${result.warp.name}" moved to where you are standing.`
+    : `Warp "${result.warp.name}" created. Every player can reach it from their menu.`);
+  return openWarps(player);
+}
+
 async function openContent(player: Player): Promise<void> {
   await menu(player, {
     title: `${C.title}Content`,
@@ -918,27 +980,7 @@ async function openContent(player: Player): Promise<void> {
       },
       {
         text: `${C.accent}Warps (${warps.size})`,
-        onClick: () =>
-          paged(player, {
-            title: `${C.title}Warps`,
-            items: warps.values(),
-            render: (warp) => ({ text: `${C.accent}${warp.name}\n${C.dim}cost ${warp.cost}` }),
-            onPick: async (warp) => {
-              const values = await prompt(player, warp.name, [
-                { kind: 'text', label: 'Cost', default: String(warp.cost) },
-                { kind: 'toggle', label: 'Delete this warp', default: false },
-              ]);
-              if (!values) return;
-              if (values[1]) {
-                warps.delete(warp.id);
-                return ok(player, 'Warp deleted.');
-              }
-              warp.cost = Number.parseInt(String(values[0]), 10) || 0;
-              warps.markDirty();
-              ok(player, 'Warp updated.');
-            },
-            back: () => openContent(player),
-          }),
+        onClick: () => openWarps(player),
       },
       {
         text: `${C.warn}Player warps (${playerWarps.size})`,
