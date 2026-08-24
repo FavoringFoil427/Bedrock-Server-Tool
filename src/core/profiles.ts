@@ -57,6 +57,8 @@ export interface Profile {
   duelsOff?: boolean;
   /** Set once the member book has been handed out. */
   gotMemberBook?: boolean;
+  /** Set once the admin item has been handed out, so it can be restored. */
+  gotAdminItem?: boolean;
 
   /** Cosmetic ids the player has bought. */
   cosmeticsOwned?: string[];

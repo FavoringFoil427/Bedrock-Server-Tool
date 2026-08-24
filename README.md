@@ -192,6 +192,11 @@ A few decisions worth knowing:
 - **Module order matters** in `src/main.ts`: `land` installs PvP protection that
   `duels` deliberately overrides, and `combat` loads after `duels` so duellists
   are exempt from combat tagging.
+- **Menu items are restored from entitlement, not from the corpse.** By the
+  time a death event reaches script the inventory has usually already been
+  emptied, so anything that inspects it then finds nothing. The profile records
+  what a player should have and every spawn tops them up, which also covers an
+  item lost to lava, the void or a full inventory.
 - **A freeze actually holds.** Movement, jumping, sneaking, mounting and the
   camera are all locked, and breaking, placing, interacting and attacking are
   refused. Teleporting is refused too, with no bypass: staff freeze somebody

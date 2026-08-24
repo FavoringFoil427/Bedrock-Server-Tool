@@ -359,17 +359,52 @@ check('a new player receives the starter kit contents',
   kitItems.some((slot) => slot.typeId === 'minecraft:stone_sword'),
   `held: ${fresh.slots.filter(Boolean).map((s) => s.typeId).join(', ') || 'nothing'}`);
 
-// The menu items are not loot: dying must not cost you your own menus.
+/*
+ * The menu items are not loot. This mimics the real death sequence rather than
+ * a convenient one: by the time the event reaches script the inventory has
+ * already been emptied, so anything that inspects it at that moment sees
+ * nothing. The restore has to work from that state.
+ */
 fresh.slots[5] = { typeId: 'adm:member_book', amount: 1, maxAmount: 1 };
 world.afterEvents.entityDie.emit({ deadEntity: fresh, damageSource: { damagingEntity: undefined } });
 __test.flush();
-fresh.slots.fill(undefined);
+fresh.slots.fill(undefined);          // the game dropped or cleared everything
 world.afterEvents.playerSpawn.emit({ player: fresh, initialSpawn: false });
 for (const t of system.timeouts.splice(0)) t.cb();
 __test.flush();
 check('the member book comes back after death',
   fresh.slots.some((slot) => slot?.typeId === 'adm:member_book'),
   `held: ${fresh.slots.filter(Boolean).map((s) => s.typeId).join(', ') || 'nothing'}`);
+
+// Nothing should be duplicated for a player who kept theirs.
+const bookCount = () => fresh.slots.filter((slot) => slot?.typeId === 'adm:member_book').length;
+world.afterEvents.playerSpawn.emit({ player: fresh, initialSpawn: false });
+for (const t of system.timeouts.splice(0)) t.cb();
+__test.flush();
+check('respawning again does not duplicate it', bookCount() === 1, `held ${bookCount()} copies`);
+
+// The admin item returns only to somebody who had one and may still use it.
+admin.slots.fill(undefined);
+say(admin, '!getsuite');
+check('an admin can take the admin item',
+  admin.slots.some((slot) => slot?.typeId === 'adm:admin_suite'), admin.messages.join(' | '));
+
+admin.slots.fill(undefined);
+world.afterEvents.playerSpawn.emit({ player: admin, initialSpawn: false });
+for (const t of system.timeouts.splice(0)) t.cb();
+__test.flush();
+check('the admin item comes back after death',
+  admin.slots.some((slot) => slot?.typeId === 'adm:admin_suite'),
+  `held: ${admin.slots.filter(Boolean).map((s) => s.typeId).join(', ') || 'nothing'}`);
+
+// An ordinary player who never had one must not be handed the admin item.
+fresh.slots.fill(undefined);
+world.afterEvents.playerSpawn.emit({ player: fresh, initialSpawn: false });
+for (const t of system.timeouts.splice(0)) t.cb();
+__test.flush();
+check('a normal player is not given the admin item',
+  !fresh.slots.some((slot) => slot?.typeId === 'adm:admin_suite'),
+  `held: ${fresh.slots.filter(Boolean).map((s) => s.typeId).join(', ')}`);
 
 // Dynamic light must follow the player and, above all, clean up after itself.
 const lightDim = __test.overworld;

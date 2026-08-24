@@ -3,7 +3,7 @@ import { commands, register } from '../core/commands';
 export { ADMIN_ITEM, MEMBER_ITEM } from '../core/items';
 import { chatAvailable } from '../core/chatbridge';
 import { can } from '../core/permissions';
-import { ADMIN_ITEM, MEMBER_ITEM, giveItem, inventoryOf, isSuiteItem, makeStack } from '../core/items';
+import { ADMIN_ITEM, MEMBER_ITEM, giveItem, inventoryOf, makeStack } from '../core/items';
 import { C, err, ok, tell } from '../core/util';
 import { openAdminMenu } from '../menus/admin';
 import { openMemberMenu } from '../menus/member';
@@ -18,37 +18,43 @@ function giveSuiteItem(player: Player, typeId: string): boolean {
   return true;
 }
 
-/** Gives the member book once, the first time a player joins. */
+/** Gives the member book on first join. */
 export function grantMemberBook(player: Player): void {
-  const profile = profileOf(player);
-  if (profile.gotMemberBook) return;
-  profile.gotMemberBook = true;
-  profiles.markDirty();
-  giveSuiteItem(player, MEMBER_ITEM);
+  ensureSuiteItems(player);
 }
 
 /**
- * Which menu items a player was carrying when they died, so exactly those come
- * back. Kept in memory only: dying and rejoining later is the same as dying,
- * and the first-join grant covers anyone the map has forgotten.
+ * Restores any menu item a player is entitled to but is not carrying.
+ *
+ * Entitlement is stored on the profile rather than read from the inventory at
+ * the moment of death. By the time a death event reaches script the inventory
+ * has usually already been emptied - dropped by the game, or cleared by the
+ * gravestone - so anything that inspects it then finds nothing and restores
+ * nothing. Asking "what should this player have?" avoids the timing question
+ * altogether, and also covers an item lost to lava, the void or a full
+ * inventory.
  */
-const carriedAtDeath = new Map<string, string[]>();
-
-/** Restores the menu items a player had, skipping any they still hold. */
-export function restoreSuiteItems(player: Player): void {
-  const wanted = carriedAtDeath.get(player.id);
-  if (!wanted || wanted.length === 0) return;
-  carriedAtDeath.delete(player.id);
-
+export function ensureSuiteItems(player: Player): void {
+  const profile = profileOf(player);
   const container = inventoryOf(player);
-  for (const typeId of wanted) {
-    let alreadyHeld = false;
-    if (container) {
-      for (let slot = 0; slot < container.size && !alreadyHeld; slot++) {
-        if (container.getItem(slot)?.typeId === typeId) alreadyHeld = true;
-      }
+
+  const held = new Set<string>();
+  if (container) {
+    for (let slot = 0; slot < container.size; slot++) {
+      const typeId = container.getItem(slot)?.typeId;
+      if (typeId) held.add(typeId);
     }
-    if (!alreadyHeld) giveSuiteItem(player, typeId);
+  }
+
+  if (!held.has(MEMBER_ITEM)) {
+    giveSuiteItem(player, MEMBER_ITEM);
+    profile.gotMemberBook = true;
+    profiles.markDirty();
+  }
+
+  // The admin item only returns to somebody who had one and still may use it.
+  if (profile.gotAdminItem && can(player, 'menu.admin') && !held.has(ADMIN_ITEM)) {
+    giveSuiteItem(player, ADMIN_ITEM);
   }
 }
 
@@ -76,6 +82,9 @@ export function install(): void {
     permission: 'menu.admin',
     handler: ({ player }) => {
       if (!giveSuiteItem(player, ADMIN_ITEM)) return err(player, 'The Admin Suite item is missing from the pack.');
+      const profile = profileOf(player);
+      profile.gotAdminItem = true;
+      profiles.markDirty();
       ok(player, 'Admin Suite item added to your inventory.');
     },
   });
@@ -150,29 +159,15 @@ export function install(): void {
   };
 
   /*
-   * Menu items survive death. They are not loot, and losing them just means a
-   * player cannot reach their own menus until an admin notices.
+   * Menu items are restored on every spawn, first join and respawn alike. They
+   * are not loot, and losing one just means a player cannot reach their own
+   * menus until an admin notices.
    */
-  world.afterEvents.entityDie.subscribe((event) => {
-    const player = event.deadEntity;
-    if (!(player instanceof Player)) return;
-
-    const container = inventoryOf(player);
-    if (!container) return;
-    const held = new Set<string>();
-    for (let slot = 0; slot < container.size; slot++) {
-      const typeId = container.getItem(slot)?.typeId;
-      if (isSuiteItem(typeId) && typeId) held.add(typeId);
-    }
-    if (held.size > 0) carriedAtDeath.set(player.id, [...held]);
-  });
-
   world.afterEvents.playerSpawn.subscribe((event) => {
-    // A respawn, not a first join; the initial grant covers that case.
-    if (event.initialSpawn) return;
     const player = event.player;
+    // A short delay so the respawn has finished settling the inventory.
     system.runTimeout(() => {
-      if (player.isValid) restoreSuiteItems(player);
+      if (player.isValid) ensureSuiteItems(player);
     }, 20);
   });
 
