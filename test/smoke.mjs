@@ -488,6 +488,18 @@ for (const [form, marker] of [
     unique.every((value, i) => value === i), unique.join(','));
 }
 
+/*
+ * A menu button should do the thing, not tell the player which command to go
+ * and type. That pattern is easy to reintroduce when adding a screen, so the
+ * menus are checked for it directly.
+ */
+for (const file of ['member.ts', 'admin.ts']) {
+  const source = await readFile(path.join(ROOT, 'src', 'menus', file), 'utf8');
+  const instructions = [...source.matchAll(/`[^`]*Use \$\{prefix\}[^`]*`|`[^`]*Use !\w+[^`]*`/g)];
+  check(`menus/${file}: no button just prints a command`, instructions.length === 0,
+    instructions.map((m) => m[0]).join(' | '));
+}
+
 /* ------------------------------------------------------------ pack assets */
 
 /*
@@ -539,10 +551,19 @@ for (const file of await readdir(itemDir)) {
   check(`${id}: icon names an atlas key`, Boolean(shorthand), JSON.stringify(icon));
   check(`${id}: atlas defines "${shorthand}"`, Boolean(atlas.texture_data?.[shorthand]));
 
+  /*
+   * Icons must ship with the pack, with one documented exception: an item that
+   * is meant to look exactly like a vanilla one points at vanilla's own
+   * texture. Listing those explicitly means a deliberate reference passes while
+   * an accidental one still fails.
+   */
+  const VANILLA_TEXTURES = new Set(['textures/blocks/torch_on']);
   const texturePath = atlas.texture_data?.[shorthand]?.textures;
   if (texturePath) {
     const onDisk = path.join(packsDir, 'RP', `${texturePath}.png`);
-    check(`${id}: ${texturePath}.png exists`, existsSync(onDisk));
+    check(`${id}: ${texturePath} resolves`,
+      existsSync(onDisk) || VANILLA_TEXTURES.has(texturePath),
+      'not shipped with the pack and not a listed vanilla texture');
   }
 
   // The engine looks the name up by the identifier, colon included.

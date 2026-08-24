@@ -1,4 +1,4 @@
-import { world } from '@minecraft/server';
+import { Player, world } from '@minecraft/server';
 import { register } from '../core/commands';
 import { Table } from '../core/storage';
 import { onlinePlayer, profileByName, profileOf, profiles } from '../core/profiles';
@@ -39,6 +39,55 @@ function broadcastToClan(clan: Clan, message: string): void {
   }
 }
 
+/** Creates a clan for a player. Returns an error string, or undefined. */
+export function createClan(player: Player, rawName: string): string | undefined {
+  const profile = profileOf(player);
+  if (clanOf(profile.id)) return 'You are already in a clan.';
+
+  const name = rawName.trim().slice(0, 24);
+  if (!name) return 'Give your clan a name.';
+  const tag = name.slice(0, 4).toUpperCase();
+  if (clans.values().some((c) => c.tag === tag)) return 'That clan tag is taken.';
+  if (!charge(profile, CREATE_COST)) return `Creating a clan costs ${money(CREATE_COST)}.`;
+
+  const id = uid();
+  clans.set(id, {
+    id,
+    name,
+    tag,
+    ownerId: profile.id,
+    members: [profile.id],
+    bank: 0,
+    createdAt: Date.now(),
+  });
+  profile.clanId = id;
+  profiles.markDirty();
+  return undefined;
+}
+
+/** Moves money from a player into their clan bank. */
+export function depositToClan(player: Player, amount: number): string | undefined {
+  const profile = profileOf(player);
+  const clan = clanOf(profile.id);
+  if (!clan) return 'You are not in a clan.';
+  if (!Number.isFinite(amount) || amount <= 0) return 'Give an amount above zero.';
+  if (!charge(profile, amount)) return `You only have ${money(balanceOf(profile))}.`;
+
+  clan.bank += amount;
+  clans.markDirty();
+  broadcastToClan(clan, `${player.name} deposited ${money(amount)}.`);
+  return undefined;
+}
+
+/** Sends a message to the player's clan. */
+export function sendClanChat(player: Player, message: string): string | undefined {
+  const clan = clanOf(profileOf(player).id);
+  if (!clan) return 'You are not in a clan.';
+  if (!message.trim()) return 'Say something.';
+  broadcastToClan(clan, `${player.name}: ${message.trim()}`);
+  return undefined;
+}
+
 export function install(): void {
   register({
     name: 'clan',
@@ -58,25 +107,9 @@ export function install(): void {
 
       switch (action) {
         case 'create': {
-          if (current) return err(player, 'You are already in a clan.');
-          if (!value) return err(player, 'Give your clan a name.');
-          const tag = value.slice(0, 4).toUpperCase();
-          if (clans.values().some((c) => c.tag === tag)) return err(player, 'That clan tag is taken.');
-          if (!charge(profile, CREATE_COST)) return err(player, `Creating a clan costs ${money(CREATE_COST)}.`);
-
-          const id = uid();
-          clans.set(id, {
-            id,
-            name: value,
-            tag,
-            ownerId: profile.id,
-            members: [profile.id],
-            bank: 0,
-            createdAt: Date.now(),
-          });
-          profile.clanId = id;
-          profiles.markDirty();
-          return ok(player, `Clan "${value}" [${tag}] created.`);
+          const problem = createClan(player, value);
+          if (problem) return err(player, problem);
+          return ok(player, `Clan "${value}" created.`);
         }
 
         case 'invite': {
@@ -144,11 +177,8 @@ export function install(): void {
           const amount = Number.parseInt(parts[1] ?? '', 10);
 
           if (sub === 'deposit') {
-            if (!Number.isFinite(amount) || amount <= 0) return err(player, 'Give an amount.');
-            if (!charge(profile, amount)) return err(player, `You only have ${money(balanceOf(profile))}.`);
-            current.bank += amount;
-            clans.markDirty();
-            broadcastToClan(current, `${player.name} deposited ${money(amount)}.`);
+            const problem = depositToClan(player, amount);
+            if (problem) return err(player, problem);
             return;
           }
           if (sub === 'withdraw') {
@@ -166,9 +196,8 @@ export function install(): void {
         }
 
         case 'chat': {
-          if (!current) return err(player, 'You are not in a clan.');
-          if (!value) return err(player, 'Say something.');
-          broadcastToClan(current, `${player.name}: ${value}`);
+          const problem = sendClanChat(player, value);
+          if (problem) return err(player, problem);
           return;
         }
 

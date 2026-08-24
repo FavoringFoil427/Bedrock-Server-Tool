@@ -208,6 +208,34 @@ export function sell(player: Player, entry: ShopEntry, bundles = 1): string | un
   return undefined;
 }
 
+/**
+ * Buys an auction lot. Returns an error string, or undefined on success.
+ * Shared by the command and the menu so both behave identically.
+ */
+export function buyAuctionLot(player: Player, lot: AuctionLot): string | undefined {
+  if (lot.sellerId === player.id) return 'That is your own listing - cancel it instead.';
+  const profile = profileOf(player);
+  if (!charge(profile, lot.price)) return `You need ${money(lot.price)}.`;
+
+  const stack = makeStack(lot.typeId, lot.amount);
+  if (!stack) {
+    addMoney(profile, lot.price);
+    return 'That item could not be delivered.';
+  }
+  giveItem(player, stack);
+  auctions.delete(lot.id);
+
+  const seller = profiles.get(lot.sellerId);
+  if (seller) {
+    addMoney(seller, lot.price);
+    const online = onlinePlayer(seller);
+    if (online) {
+      tell(online, `${C.good}${player.name} bought your ${prettyItemName(lot.typeId)} for ${money(lot.price)}.`);
+    }
+  }
+  return undefined;
+}
+
 export function install(): void {
 
   register({
@@ -421,24 +449,8 @@ export function install(): void {
       if (action === 'buy') {
         const lot = auctions.get(args[1] ?? '');
         if (!lot) return err(player, 'No listing with that id.');
-        if (lot.sellerId === player.id) return err(player, 'That is your own listing - use ah cancel.');
-        const profile = profileOf(player);
-        if (!charge(profile, lot.price)) return err(player, `You need ${money(lot.price)}.`);
-
-        const stack = makeStack(lot.typeId, lot.amount);
-        if (!stack) {
-          addMoney(profile, lot.price);
-          return err(player, 'That item could not be delivered.');
-        }
-        giveItem(player, stack);
-        auctions.delete(lot.id);
-
-        const seller = profiles.get(lot.sellerId);
-        if (seller) {
-          addMoney(seller, lot.price);
-          const online = onlinePlayer(seller);
-          if (online) tell(online, `${C.good}${player.name} bought your ${prettyItemName(lot.typeId)} for ${money(lot.price)}.`);
-        }
+        const problem = buyAuctionLot(player, lot);
+        if (problem) return err(player, problem);
         return ok(player, `Bought ${lot.amount}x ${prettyItemName(lot.typeId)}.`);
       }
 

@@ -112,6 +112,50 @@ export function init(): void {
   reindex();
 }
 
+/**
+ * Claims land around a player. Returns an error string, or undefined on
+ * success. Shared by the command and the menu so both enforce the same rules.
+ */
+export function claimLand(player: Player, requested: number): string | undefined {
+  const config = cfg();
+  if (!config.claimsEnabled) return 'Land claims are disabled.';
+
+  const radius = Math.min(config.claimMaxRadius, Math.max(4, requested || 16));
+  const size = (radius * 2 + 1) ** 2;
+  const profile = profileOf(player);
+  if (profile.claimBlocks < size) {
+    return `You need ${size} claim blocks but have ${profile.claimBlocks}.`;
+  }
+
+  const { x, z } = player.location;
+  const minX = Math.floor(x) - radius;
+  const maxX = Math.floor(x) + radius;
+  const minZ = Math.floor(z) - radius;
+  const maxZ = Math.floor(z) + radius;
+
+  if (overlaps(player.dimension.id, minX, minZ, maxX, maxZ)) return t('land.overlap');
+
+  const id = uid();
+  claims.set(id, {
+    id,
+    name: `${player.name}'s land`,
+    ownerId: player.id,
+    ownerName: player.name,
+    dimension: player.dimension.id,
+    minX,
+    minZ,
+    maxX,
+    maxZ,
+    members: [],
+    allowPvp: false,
+    allowContainers: false,
+  });
+  profile.claimBlocks -= size;
+  profiles.markDirty();
+  reindex();
+  return undefined;
+}
+
 export function install(): void {
 
   register({
@@ -121,48 +165,11 @@ export function install(): void {
     permission: 'land.claim',
     args: [{ name: 'radius', type: 'int', optional: true }],
     handler: ({ player, args }) => {
-      const config = cfg();
-      if (!config.claimsEnabled) return err(player, 'Land claims are disabled.');
-
-      const radius = Math.min(
-        config.claimMaxRadius,
-        Math.max(4, Number.parseInt(args[0] ?? '16', 10) || 16),
-      );
-      const size = (radius * 2 + 1) ** 2;
-      const profile = profileOf(player);
-      if (profile.claimBlocks < size) {
-        return err(player, `You need ${size} claim blocks but have ${profile.claimBlocks}.`);
-      }
-
-      const { x, z } = player.location;
-      const minX = Math.floor(x) - radius;
-      const maxX = Math.floor(x) + radius;
-      const minZ = Math.floor(z) - radius;
-      const maxZ = Math.floor(z) + radius;
-
-      if (overlaps(player.dimension.id, minX, minZ, maxX, maxZ)) {
-        return err(player, t('land.overlap'));
-      }
-
-      const id = uid();
-      claims.set(id, {
-        id,
-        name: `${player.name}'s land`,
-        ownerId: player.id,
-        ownerName: player.name,
-        dimension: player.dimension.id,
-        minX,
-        minZ,
-        maxX,
-        maxZ,
-        members: [],
-        allowPvp: false,
-        allowContainers: false,
-      });
-      profile.claimBlocks -= size;
-      profiles.markDirty();
-      reindex();
-      ok(player, t('land.claimed', { size }));
+      const radius = Number.parseInt(args[0] ?? '16', 10) || 16;
+      const problem = claimLand(player, radius);
+      if (problem) return err(player, problem);
+      const applied = Math.min(cfg().claimMaxRadius, Math.max(4, radius));
+      ok(player, t('land.claimed', { size: (applied * 2 + 1) ** 2 }));
     },
   });
 

@@ -9,6 +9,9 @@
       "textures": "textures/items/adm_member_book"
     },
     "adm_offhand_torch": {
+      "textures": "textures/blocks/torch_on"
+    },
+    "adm_offhand_torch_fallback": {
       "textures": "textures/items/adm_offhand_torch"
     }
   }

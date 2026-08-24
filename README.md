@@ -192,6 +192,11 @@ A few decisions worth knowing:
 - **Module order matters** in `src/main.ts`: `land` installs PvP protection that
   `duels` deliberately overrides, and `combat` loads after `duels` so duellists
   are exempt from combat tagging.
+- **A menu button does the thing.** Printing "use !claim 16 to confirm" is not
+  a menu, it is a manual with extra steps. Every button carries out the action
+  itself, which meant lifting the logic out of the command handlers into shared
+  functions both call, so the two can never drift apart. A test fails the build
+  if a button goes back to printing a command.
 - **Dynamic light is real blocks, so cleanup is the feature.** Bedrock exposes
   no way to set a light level, so the handheld torch places a `light_block` and
   moves it. A stray one is invisible and effectively permanent, so every path

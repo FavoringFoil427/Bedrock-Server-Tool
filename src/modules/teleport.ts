@@ -436,6 +436,33 @@ export async function randomTeleport(player: Player): Promise<boolean> {
   return false;
 }
 
+/** Returns a player to where they last were. Undefined on success. */
+export async function goBack(player: Player): Promise<string | undefined> {
+  const target = backPoints.get(player.id);
+  if (!target) return 'You have nowhere to go back to.';
+  if (!(await warmup(player))) return undefined;
+
+  // Capture where they are first, so `back` toggles between the two points.
+  const current = locationOf(player);
+  if (!goTo(player, target)) return 'The teleport failed.';
+  backPoints.set(player.id, current);
+  return undefined;
+}
+
+/** Sends a player to the world spawn. Undefined on success. */
+export async function goToSpawn(player: Player): Promise<string | undefined> {
+  if (!(await warmup(player))) return undefined;
+  const spawn = world.getDefaultSpawnLocation();
+  // A y above the build limit means "use the surface"; resolve it.
+  const y =
+    spawn.y > 30000
+      ? (world.getDimension('overworld').getTopmostBlock({ x: spawn.x, z: spawn.z })?.location.y ?? 64) + 1
+      : spawn.y;
+  return goTo(player, { x: spawn.x, y, z: spawn.z, dimension: 'minecraft:overworld' })
+    ? undefined
+    : 'The teleport failed.';
+}
+
 function installRtpAndBack(): void {
   register({
     name: 'rtp',
@@ -458,15 +485,9 @@ function installRtpAndBack(): void {
     category: 'Teleport',
     permission: 'tp.back',
     handler: async ({ player }) => {
-      const target = backPoints.get(player.id);
-      if (!target) return err(player, 'You have nowhere to go back to.');
-      if (!(await warmup(player))) return;
-      // Capture the current spot first so `back` toggles between the two.
-      const current = locationOf(player);
-      if (goTo(player, target)) {
-        backPoints.set(player.id, current);
-        ok(player, 'Returned to your previous location.');
-      }
+      const problem = await goBack(player);
+      if (problem) return err(player, problem);
+      ok(player, 'Returned to your previous location.');
     },
   });
 
@@ -476,11 +497,8 @@ function installRtpAndBack(): void {
     category: 'Teleport',
     permission: 'tp.warp',
     handler: async ({ player }) => {
-      if (!(await warmup(player))) return;
-      const spawn = world.getDefaultSpawnLocation();
-      // A y of 32767 means "use the surface"; let the game resolve it.
-      const y = spawn.y > 30000 ? (world.getDimension('overworld').getTopmostBlock({ x: spawn.x, z: spawn.z })?.location.y ?? 64) + 1 : spawn.y;
-      goTo(player, { x: spawn.x, y, z: spawn.z, dimension: 'minecraft:overworld' });
+      const problem = await goToSpawn(player);
+      if (problem) return err(player, problem);
       ok(player, 'Teleported to spawn.');
     },
   });

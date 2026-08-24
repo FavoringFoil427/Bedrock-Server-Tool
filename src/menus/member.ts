@@ -5,11 +5,13 @@ import { profileOf, profiles } from '../core/profiles';
 import { topRole } from '../core/permissions';
 import { C, err, formatDuration, formatVec, ok, tell } from '../core/util';
 import { balanceOf, money, richest, transfer } from '../modules/economy';
-import { ShopEntry, auctions, buy, categories, itemsIn, listForSale, listingsOf, sell, unitPrice, unlist } from '../modules/shop';
+import { ShopEntry, auctions, buy, buyAuctionLot, categories, itemsIn, listForSale, listingsOf, sell, unitPrice, unlist } from '../modules/shop';
 import {
   acceptTeleportRequest,
   denyTeleportRequest,
+  goBack,
   goTo,
+  goToSpawn,
   hasPendingRequest,
   randomTeleport,
   sendTeleportRequest,
@@ -29,8 +31,8 @@ import { describeRequirement, ladder, rankOf } from '../modules/ranks';
 import { jobOf, jobs, jobsEnabled } from '../modules/jobs';
 import { claim as claimQuest, isClaimed, isComplete, progressFor, quests } from '../modules/quests';
 import { claimKit, dailyReward, grant, kits, kitsEnabled } from '../modules/rewards';
-import { claimAt, claims } from '../modules/land';
-import { clanOf, clans } from '../modules/clans';
+import { claimAt, claimLand, claims } from '../modules/land';
+import { clanOf, clans, createClan, depositToClan, sendClanChat } from '../modules/clans';
 import { prettyItemName } from '../core/items';
 import { codes } from '../modules/rewards';
 import { openVaultCommand } from '../modules/vault';
@@ -306,7 +308,9 @@ async function openAuction(player: Player): Promise<void> {
         `${C.good}Buy`,
       );
       if (!yes) return;
-      tell(player, `${C.dim}Use !ah buy ${lot.id} to complete the purchase.`);
+      const problem = buyAuctionLot(player, lot);
+      if (problem) err(player, problem);
+      else ok(player, `Bought ${lot.amount}x ${prettyItemName(lot.typeId)}.`);
     },
     back: () => openMemberMenu(player),
   });
@@ -465,7 +469,6 @@ async function openMyWarps(player: Player): Promise<void> {
 /** Player-to-player teleporting, without needing to know the commands. */
 async function openTeleport(player: Player): Promise<void> {
   const others = world.getAllPlayers().filter((other) => other.id !== player.id);
-  const prefix = cfg().commandPrefix;
 
   await menu(player, {
     title: `${C.title}Teleport`,
@@ -511,9 +514,20 @@ async function openTeleport(player: Player): Promise<void> {
       },
       {
         text: `${C.dim}Back to your last location`,
-        onClick: async () => tell(player, `${C.dim}Use ${prefix}back to return where you were.`),
+        onClick: async () => {
+          const problem = await goBack(player);
+          if (problem) err(player, problem);
+          else ok(player, 'Returned to your previous location.');
+        },
       },
-      { text: `${C.accent}Spawn`, onClick: async () => tell(player, `${C.dim}Use ${prefix}spawn to return to spawn.`) },
+      {
+        text: `${C.accent}Spawn`,
+        onClick: async () => {
+          const problem = await goToSpawn(player);
+          if (problem) err(player, problem);
+          else ok(player, 'Teleported to spawn.');
+        },
+      },
     ],
     back: () => openMemberMenu(player),
   });
@@ -554,7 +568,11 @@ async function openLand(player: Player): Promise<void> {
         onClick: async () => {
           const answer = await askText(player, 'Claim land', 'Radius in blocks', '16', '16');
           if (!answer) return;
-          tell(player, `${C.dim}Use !claim ${answer} to confirm.`);
+          const radius = Number.parseInt(answer, 10);
+          if (!Number.isFinite(radius) || radius < 1) return err(player, 'Give a radius in blocks.');
+          const problem = claimLand(player, radius);
+          if (problem) err(player, problem);
+          else ok(player, 'Land claimed.');
         },
       },
       ...(here && here.ownerId === player.id
@@ -804,7 +822,9 @@ async function openClan(player: Player): Promise<void> {
           onClick: async () => {
             const name = await askText(player, 'Create clan', 'Clan name', 'Wolves');
             if (!name) return;
-            tell(player, `${C.dim}Use !clan create ${name} to confirm.`);
+            const problem = createClan(player, name);
+            if (problem) err(player, problem);
+            else ok(player, `Clan "${name}" created.`);
           },
         },
         {
@@ -841,14 +861,19 @@ async function openClan(player: Player): Promise<void> {
         text: `${C.good}Deposit to bank`,
         onClick: async () => {
           const answer = await askText(player, 'Deposit', 'Amount', '100');
-          if (answer) tell(player, `${C.dim}Use !clan bank deposit ${answer} to confirm.`);
+          if (!answer) return;
+          const problem = depositToClan(player, Number.parseInt(answer, 10));
+          if (problem) err(player, problem);
+          else ok(player, `Deposited ${money(Number.parseInt(answer, 10))}.`);
         },
       },
       {
         text: `${C.accent}Clan chat`,
         onClick: async () => {
           const message = await askText(player, 'Clan chat', 'Message', 'Hello!');
-          if (message) tell(player, `${C.dim}Use !clan chat ${message}`);
+          if (!message) return;
+          const problem = sendClanChat(player, message);
+          if (problem) err(player, problem);
         },
       },
     ],
