@@ -255,8 +255,18 @@ for (const file of await readdir(itemDir)) {
   check(`${id}: format_version ${declared.join('.')} is within the supported baseline`,
     withinBaseline, `newer than ${SAFE_ITEM_FORMAT.join('.')} - icons may not render on older clients`);
 
-  // The icon component must name a key that the atlas actually defines.
-  const shorthand = typeof icon === 'string' ? icon : (icon?.texture ?? icon?.textures?.default);
+  /*
+   * Only two shapes are valid: a bare string, or { textures: { default } }.
+   * A singular "texture" key looks plausible and is silently discarded, which
+   * leaves the item registered and named but rendered blank.
+   */
+  const validShape = typeof icon === 'string' || typeof icon?.textures?.default === 'string';
+  check(`${id}: icon component has a valid shape`, validShape,
+    `got ${JSON.stringify(icon)} - use a string or { textures: { default } }`);
+  check(`${id}: icon does not use the invalid singular "texture" key`,
+    !(icon && typeof icon === 'object' && 'texture' in icon));
+
+  const shorthand = typeof icon === 'string' ? icon : icon?.textures?.default;
   check(`${id}: icon names an atlas key`, Boolean(shorthand), JSON.stringify(icon));
   check(`${id}: atlas defines "${shorthand}"`, Boolean(atlas.texture_data?.[shorthand]));
 
