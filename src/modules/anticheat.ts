@@ -1,4 +1,4 @@
-import { GameMode, Player, system, world } from '@minecraft/server';
+import { Block, Dimension, GameMode, ItemStack, Player, Vector3, system, world } from '@minecraft/server';
 import { register } from '../core/commands';
 import { cfg } from '../core/config';
 import { Table } from '../core/storage';
@@ -21,7 +21,14 @@ import { banProfile, notifyStaff } from './moderation';
  * doing their job, not cheating.
  */
 
-export type ViolationKind = 'illegal_item' | 'overstack' | 'banned_block' | 'protected_break';
+export type ViolationKind =
+  | 'illegal_item'
+  | 'overstack'
+  | 'banned_block'
+  | 'protected_break'
+  | 'piston_dupe'
+  | 'minecart_dupe'
+  | 'portal_dupe';
 
 export interface Violation {
   id: string;
@@ -46,8 +53,20 @@ export function exemptFromAnticheat(player: Player): boolean {
   return mode === GameMode.Creative || mode === GameMode.Spectator;
 }
 
-/** Records a violation, tells staff, and escalates once the threshold is hit. */
-export function flag(player: Player, kind: ViolationKind, detail: string, action: string): void {
+/**
+ * Records a violation, tells staff, and escalates once the threshold is hit.
+ *
+ * `escalate` is false for heuristics - patterns that merely look like an
+ * exploit. Those are worth telling staff about but must never push somebody
+ * toward an automatic ban on their own.
+ */
+export function flag(
+  player: Player,
+  kind: ViolationKind,
+  detail: string,
+  action: string,
+  escalate = true,
+): void {
   const id = uid();
   violations.set(id, {
     id,
@@ -64,16 +83,19 @@ export function flag(player: Player, kind: ViolationKind, detail: string, action
   for (const old of all.slice(0, Math.max(0, all.length - LOG_CAP))) violations.delete(old.id);
 
   const profile = profileOf(player);
-  profile.acViolations = (profile.acViolations ?? 0) + 1;
-  profiles.markDirty();
+  if (escalate) {
+    profile.acViolations = (profile.acViolations ?? 0) + 1;
+    profiles.markDirty();
+  }
 
   const config = cfg();
   if (config.anticheatAlertStaff) {
-    notifyStaff(`${C.bad}[AC]${C.reset} ${player.name}: ${detail} ${C.dim}(${action}, ${profile.acViolations} total)`);
+    const tally = escalate ? `, ${profile.acViolations} total` : ', not counted';
+    notifyStaff(`${C.bad}[AC]${C.reset} ${player.name}: ${detail} ${C.dim}(${action}${tally})`);
   }
 
   const threshold = config.anticheatBanThreshold;
-  if (threshold > 0 && profile.acViolations >= threshold) {
+  if (escalate && threshold > 0 && (profile.acViolations ?? 0) >= threshold) {
     banProfile(profile, 'Anticheat', `Automatic: ${threshold} anticheat violations`);
     notifyStaff(`${C.bad}[AC] ${player.name} was banned automatically after ${profile.acViolations} violations.`);
   }
@@ -122,6 +144,105 @@ export function scanInventory(player: Player): number {
     }
   }
   return found;
+}
+
+/* ---------------------------------------------------- duplication vectors */
+
+/** Containers whose block entity can be duplicated by a piston push. */
+function isDupeContainer(typeId: string): boolean {
+  return (
+    typeId.endsWith('shulker_box') ||
+    typeId === 'minecraft:chest' ||
+    typeId === 'minecraft:trapped_chest' ||
+    typeId === 'minecraft:barrel'
+  );
+}
+
+function isPiston(typeId: string): boolean {
+  return typeId === 'minecraft:piston' || typeId === 'minecraft:sticky_piston';
+}
+
+/** facing_direction, as either the legacy integer or the newer string trait. */
+const FACING_BY_INDEX: Vector3[] = [
+  { x: 0, y: -1, z: 0 },
+  { x: 0, y: 1, z: 0 },
+  { x: 0, y: 0, z: -1 },
+  { x: 0, y: 0, z: 1 },
+  { x: -1, y: 0, z: 0 },
+  { x: 1, y: 0, z: 0 },
+];
+const FACING_BY_NAME: Record<string, Vector3> = {
+  down: FACING_BY_INDEX[0],
+  up: FACING_BY_INDEX[1],
+  north: FACING_BY_INDEX[2],
+  south: FACING_BY_INDEX[3],
+  west: FACING_BY_INDEX[4],
+  east: FACING_BY_INDEX[5],
+};
+
+/** Which way a piston pushes, or undefined when the state cannot be read. */
+function pistonFacing(block: Block): Vector3 | undefined {
+  try {
+    const states = block.permutation.getAllStates();
+    const index = states['facing_direction'];
+    if (typeof index === 'number' && FACING_BY_INDEX[index]) return FACING_BY_INDEX[index];
+    const named = states['minecraft:facing_direction'];
+    if (typeof named === 'string' && FACING_BY_NAME[named]) return FACING_BY_NAME[named];
+  } catch {
+    // Older blocks may not expose the state at all.
+  }
+  return undefined;
+}
+
+/**
+ * Breaks a piston dupe setup by popping the *piston*, returned as an item.
+ *
+ * Never the container or its contents: a false positive should cost at most one
+ * piston, not somebody's shulker box full of gear.
+ */
+function neutralisePiston(block: Block, containerName: string, culprit: Player | undefined): void {
+  const dimension = block.dimension;
+  const location = { x: block.location.x, y: block.location.y, z: block.location.z };
+  const pistonType = block.typeId;
+
+  try {
+    dimension.setBlockType(location, 'minecraft:air');
+    dimension.spawnItem(new ItemStack(pistonType, 1), {
+      x: location.x + 0.5,
+      y: location.y + 0.5,
+      z: location.z + 0.5,
+    });
+  } catch (error) {
+    console.warn(`[AdminSuite] could not neutralise a piston setup: ${error}`);
+    return;
+  }
+
+  const where = formatVec(location);
+  if (culprit) {
+    flag(culprit, 'piston_dupe', `piston aimed at a ${containerName} at ${where}`, 'piston removed');
+  } else {
+    notifyStaff(`${C.bad}[AC]${C.reset} A piston ${containerName} dupe setup was removed at ${where}.`);
+  }
+  for (const nearby of dimension.getPlayers({ location, maxDistance: 16 })) {
+    try {
+      nearby.playSound('note.bass', { pitch: 0.5, volume: 1 });
+    } catch {
+      // Sound is a courtesy, never a reason to fail.
+    }
+  }
+}
+
+/** True when any of the six neighbours of a position is a shulker box. */
+function hasAdjacentShulker(dimension: Dimension, at: Vector3): boolean {
+  for (const offset of FACING_BY_INDEX) {
+    try {
+      const neighbour = dimension.getBlock({ x: at.x + offset.x, y: at.y + offset.y, z: at.z + offset.z });
+      if (neighbour?.typeId.endsWith('shulker_box')) return true;
+    } catch {
+      // Unloaded neighbour; nothing to judge.
+    }
+  }
+  return false;
 }
 
 export function install(): void {
@@ -233,6 +354,137 @@ export function install(): void {
       if (player.isValid) scanInventory(player);
     }, 60);
   });
+
+  /*
+   * Piston duplication, caught at build time where it can be attributed.
+   * Both orders are covered: a piston placed facing a container, and a
+   * container placed in front of a piston that is already there.
+   */
+  world.afterEvents.playerPlaceBlock.subscribe((event) => {
+    const config = cfg();
+    if (!config.anticheatEnabled || !config.anticheatPistonDupe) return;
+    const player = event.player;
+    if (exemptFromAnticheat(player)) return;
+
+    const block = event.block;
+    const dimension = block.dimension;
+    const origin = block.location;
+
+    if (isPiston(block.typeId)) {
+      /*
+       * Facing tells us the intended push, but the glitch has several
+       * geometric variants. A shulker box touching a piston on any side is
+       * virtually never a real build, so that alone is enough.
+       */
+      if (hasAdjacentShulker(dimension, origin)) {
+        system.run(() => neutralisePiston(block, 'shulker_box', player));
+        return;
+      }
+      const facing = pistonFacing(block);
+      if (!facing) return;
+      const front = dimension.getBlock({
+        x: origin.x + facing.x,
+        y: origin.y + facing.y,
+        z: origin.z + facing.z,
+      });
+      if (front && isDupeContainer(front.typeId)) {
+        const name = front.typeId.replace('minecraft:', '');
+        system.run(() => neutralisePiston(block, name, player));
+      }
+      return;
+    }
+
+    if (!isDupeContainer(block.typeId)) return;
+    // A container just went down: pop any piston already aimed at this spot.
+    for (const offset of FACING_BY_INDEX) {
+      const neighbourAt = { x: origin.x - offset.x, y: origin.y - offset.y, z: origin.z - offset.z };
+      let neighbour;
+      try {
+        neighbour = dimension.getBlock(neighbourAt);
+      } catch {
+        continue;
+      }
+      if (!neighbour || !isPiston(neighbour.typeId)) continue;
+      const facing = pistonFacing(neighbour);
+      if (!facing || facing.x !== offset.x || facing.y !== offset.y || facing.z !== offset.z) continue;
+      const name = block.typeId.replace('minecraft:', '');
+      system.run(() => neutralisePiston(neighbour, name, player));
+      return;
+    }
+  });
+
+  /*
+   * Minecart chest duplication: the same chest minecart removed twice in quick
+   * succession at one spot. This is a pattern rather than proof, so it alerts
+   * staff without counting toward an automatic ban.
+   *
+   * The removal is read from the *before* event because the after event
+   * carries only an id and a type - there is no location on it to work from,
+   * and the entity is already gone by then.
+   */
+  const recentMinecartRemovals = new Map<string, number>();
+  world.beforeEvents.entityRemove.subscribe((event) => {
+    const config = cfg();
+    if (!config.anticheatEnabled || !config.anticheatMinecartDupe) return;
+
+    const entity = event.removedEntity;
+    if (!entity?.typeId.includes('chest_minecart')) return;
+
+    const at = entity.location;
+    const dimension = entity.dimension;
+    const key = `${dimension.id}:${Math.floor(at.x)},${Math.floor(at.y)},${Math.floor(at.z)}`;
+    const seenAt = recentMinecartRemovals.get(key);
+    const stamp = Date.now();
+
+    if (seenAt !== undefined && stamp - seenAt < 3000) {
+      const location = { x: at.x, y: at.y, z: at.z };
+      system.run(() => {
+        for (const nearby of dimension.getPlayers({ location, maxDistance: 8 })) {
+          if (exemptFromAnticheat(nearby)) continue;
+          flag(nearby, 'minecart_dupe', `possible minecart chest dupe at ${formatVec(location)}`, 'logged only', false);
+        }
+      });
+    }
+    recentMinecartRemovals.set(key, stamp);
+    system.runTimeout(() => recentMinecartRemovals.delete(key), 100);
+  });
+
+  /*
+   * Nether portal duplication: a container tossed as an item into a portal and
+   * force-quit through copies itself. The force-quit is invisible to scripts,
+   * so the vector is denied instead - a container item sitting in portal blocks
+   * is removed before it can transfer. Containers are essentially never thrown
+   * through portals in normal play, since you carry them.
+   */
+  system.runInterval(() => {
+    const config = cfg();
+    if (!config.anticheatEnabled || !config.anticheatPortalDupe) return;
+
+    for (const player of world.getAllPlayers()) {
+      const dimension = player.dimension;
+      let items;
+      try {
+        items = dimension.getEntities({ type: 'minecraft:item', location: player.location, maxDistance: 16 });
+      } catch {
+        continue;
+      }
+      for (const entity of items) {
+        try {
+          const stack = entity.getComponent('minecraft:item')?.itemStack;
+          if (!stack || !isDupeContainer(stack.typeId)) continue;
+          const block = dimension.getBlock(entity.location);
+          if (block?.typeId !== 'minecraft:portal') continue;
+
+          const where = formatVec(entity.location);
+          const name = stack.typeId.replace('minecraft:', '');
+          entity.remove();
+          notifyStaff(`${C.bad}[AC]${C.reset} A ${name} nether portal dupe was blocked at ${where}.`);
+        } catch {
+          // The item may already be gone; nothing to do.
+        }
+      }
+    }
+  }, 5);
 
   // Periodic sweep, staggered so a full server never scans everyone at once.
   let cursor = 0;

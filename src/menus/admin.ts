@@ -412,6 +412,9 @@ async function openAnticheat(admin: Player): Promise<void> {
             { kind: 'toggle', label: 'Detect impossible stack sizes', default: config.anticheatCheckOverstacks },
             { kind: 'slider', label: 'Background sweep (seconds, 0 = off)', min: 0, max: 120, step: 5, default: config.anticheatScanSeconds },
             { kind: 'text', label: 'Auto ban after N detections (0 = never)', default: String(config.anticheatBanThreshold) },
+            { kind: 'toggle', label: 'Piston container dupe protection', default: config.anticheatPistonDupe },
+            { kind: 'toggle', label: 'Minecart chest dupe detection', default: config.anticheatMinecartDupe },
+            { kind: 'toggle', label: 'Nether portal dupe protection', default: config.anticheatPortalDupe },
           ]);
           if (!values) return;
           saveConfig((c) => {
@@ -419,6 +422,9 @@ async function openAnticheat(admin: Player): Promise<void> {
             c.anticheatCheckOverstacks = Boolean(values[1]);
             c.anticheatScanSeconds = Number(values[2]);
             c.anticheatBanThreshold = Math.max(0, Number.parseInt(String(values[3]), 10) || 0);
+            c.anticheatPistonDupe = Boolean(values[4]);
+            c.anticheatMinecartDupe = Boolean(values[5]);
+            c.anticheatPortalDupe = Boolean(values[6]);
           });
           ok(admin, 'Anticheat settings saved.');
         },

@@ -147,6 +147,10 @@ export interface Config {
   anticheatBanThreshold: number;
   /** Seconds between background inventory sweeps. 0 disables them. */
   anticheatScanSeconds: number;
+  /** Duplication vectors, each independently switchable. */
+  anticheatPistonDupe: boolean;
+  anticheatMinecartDupe: boolean;
+  anticheatPortalDupe: boolean;
   anticheatIllegalItems: string[];
   anticheatBannedBlocks: string[];
   anticheatProtectedBlocks: string[];
@@ -232,6 +236,9 @@ export function defaultConfig(): Config {
     anticheatCheckOverstacks: true,
     anticheatBanThreshold: 0,
     anticheatScanSeconds: 10,
+    anticheatPistonDupe: true,
+    anticheatMinecartDupe: true,
+    anticheatPortalDupe: true,
     anticheatIllegalItems: [...DEFAULT_ILLEGAL_ITEMS],
     anticheatBannedBlocks: [...DEFAULT_BANNED_BLOCKS],
     anticheatProtectedBlocks: [...DEFAULT_PROTECTED_BLOCKS],

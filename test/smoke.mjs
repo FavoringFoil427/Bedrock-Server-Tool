@@ -348,6 +348,28 @@ world.beforeEvents.playerBreakBlock.emit(breakEvent);
 __test.flush();
 check('breaking bedrock is blocked', breakEvent.cancel === true);
 
+// Minecart chest dupe: two removals at one spot inside the window. This runs
+// off the before-event, because the after-event carries no location at all.
+const cartAt = { x: 10, y: 64, z: 10 };
+const removal = () => ({
+  removedEntity: { typeId: 'minecraft:chest_minecart', location: cartAt, dimension: __test.overworld },
+});
+
+admin.messages.length = 0;
+world.beforeEvents.entityRemove.emit(removal());
+__test.flush();
+world.beforeEvents.entityRemove.emit(removal());
+__test.flush();
+
+const alerts = admin.messages.join(' | ');
+check('minecart dupe pattern is detected', /minecart/i.test(alerts), alerts);
+// A heuristic is a pattern, not proof, so it must not count toward a ban.
+check('heuristic detections are not counted toward a ban', /not counted/i.test(alerts), alerts);
+
+say(admin, '!aclog');
+check('the detection reached the log',
+  admin.messages.some((m) => /minecart/i.test(m)), admin.messages.join(' | '));
+
 // Persistence must survive a shutdown/reload cycle.
 system.beforeEvents.shutdown.emit({});
 __test.flush();

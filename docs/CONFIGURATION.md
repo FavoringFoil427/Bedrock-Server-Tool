@@ -86,6 +86,9 @@ Every setting lives in the world and is edited in-game through
 | `anticheatCheckOverstacks` | `boolean` | `true` |  |
 | `anticheatBanThreshold` | `number` | `0` | Violations before an automatic ban. 0 never auto-bans. |
 | `anticheatScanSeconds` | `number` | `10` | Seconds between background inventory sweeps. 0 disables them. |
+| `anticheatPistonDupe` | `boolean` | `true` | Duplication vectors, each independently switchable. |
+| `anticheatMinecartDupe` | `boolean` | `true` |  |
+| `anticheatPortalDupe` | `boolean` | `true` |  |
 | `anticheatIllegalItems` | `string[]` | `[...DEFAULT_ILLEGAL_ITEMS]` |  |
 | `anticheatBannedBlocks` | `string[]` | `[...DEFAULT_BANNED_BLOCKS]` |  |
 | `anticheatProtectedBlocks` | `string[]` | `[...DEFAULT_PROTECTED_BLOCKS]` |  |

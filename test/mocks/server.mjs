@@ -16,7 +16,7 @@ const EVENT_NAMES_AFTER = [
 ];
 const EVENT_NAMES_BEFORE = [
   'playerBreakBlock', 'playerInteractWithBlock', 'playerInteractWithEntity',
-  'entityHurt', 'playerLeave', 'chatSend',
+  'entityHurt', 'playerLeave', 'chatSend', 'entityRemove',
 ];
 
 function makeEvents(names) {
@@ -92,10 +92,12 @@ export class Player {
 }
 
 class Dimension {
-  constructor(id) { this.id = id; }
+  constructor(id) { this.id = id; this.blocks = new Map(); this.placed = []; }
   getEntities() { return []; }
   getPlayers() { return world.getAllPlayers(); }
   getTopmostBlock() { return { location: { x: 0, y: 64, z: 0 } }; }
+  getBlock(loc) { return this.blocks?.get(`${loc.x},${loc.y},${loc.z}`); }
+  setBlockType(loc, type) { this.placed?.push({ loc, type }); }
   spawnEntity() {
     return { nameTag: '', getDynamicProperty() {}, setDynamicProperty() {}, remove() {}, location: { x: 0, y: 0, z: 0 } };
   }
