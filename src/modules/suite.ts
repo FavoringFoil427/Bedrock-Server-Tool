@@ -1,5 +1,6 @@
-import { Player, system, world } from '@minecraft/server';
-import { register } from '../core/commands';
+import { EquipmentSlot, Player, system, world } from '@minecraft/server';
+import { commands, register } from '../core/commands';
+import { chatAvailable } from '../core/chatbridge';
 import { can } from '../core/permissions';
 import { giveItem, makeStack } from '../core/items';
 import { C, err, ok, tell } from '../core/util';
@@ -67,6 +68,22 @@ export function install(): void {
   });
 
   register({
+    name: 'diag',
+    description: 'Report addon status, for troubleshooting.',
+    category: 'General',
+    handler: ({ player }) => {
+      tell(player, `${C.title}Admin Suite diagnostics`);
+      player.sendMessage(`  ${C.dim}Script: ${C.good}running`);
+      player.sendMessage(`  ${C.dim}Chat events (Beta APIs): ${chatAvailable() ? `${C.good}on` : `${C.bad}off`}`);
+      player.sendMessage(`  ${C.dim}Commands registered: ${C.white}${commands().length}`);
+      player.sendMessage(`  ${C.dim}Your permissions: ${C.white}${can(player, 'menu.admin') ? 'admin menu' : 'member menu'}`);
+      const held = player.getComponent('minecraft:equippable')?.getEquipment(EquipmentSlot.Mainhand);
+      player.sendMessage(`  ${C.dim}Holding: ${C.white}${held?.typeId ?? 'nothing'}`);
+      player.sendMessage(`  ${C.dim}If items look blank, the resource pack is not applied or is below another pack.`);
+    },
+  });
+
+  register({
     name: 'give',
     description: 'Admin: give an item to a player.',
     category: 'Players',
@@ -126,6 +143,28 @@ export function install(): void {
     event.cancel = true;
     const player = event.player;
     system.run(() => openFor(player, typeId));
+  });
+
+  /*
+   * Left-click. Breaking a block with a suite item in hand opens the menu
+   * instead, which also stops an admin chipping holes in the world with the
+   * tool they are only trying to open.
+   */
+  world.beforeEvents.playerBreakBlock.subscribe((event) => {
+    const typeId = event.itemStack?.typeId;
+    if (typeId !== ADMIN_ITEM && typeId !== MEMBER_ITEM) return;
+    event.cancel = true;
+    const player = event.player;
+    system.run(() => openFor(player, typeId));
+  });
+
+  // Left-clicking an entity, except NPCs, which own their own menu.
+  world.afterEvents.entityHitEntity.subscribe((event) => {
+    const player = event.damagingEntity;
+    if (!(player instanceof Player)) return;
+    if (event.hitEntity.typeId === 'adm:npc') return;
+    const held = player.getComponent('minecraft:equippable')?.getEquipment(EquipmentSlot.Mainhand);
+    openFor(player, held?.typeId);
   });
 
   // Same again for aiming at an entity, so the menu is never swallowed.

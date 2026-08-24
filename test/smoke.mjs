@@ -210,6 +210,23 @@ for (const file of await readdir(itemDir)) {
   const id = item.description.identifier;
   const icon = item.components['minecraft:icon'];
 
+  /*
+   * A format_version newer than the player's client is not understood, and the
+   * components block silently fails to apply - the item still registers and
+   * still shows its name, but renders with no icon. Older schemas keep working
+   * on new clients, so the safe direction is down.
+   */
+  const SAFE_ITEM_FORMAT = [1, 21, 0];
+  const declared = String(JSON.parse(await readFile(path.join(itemDir, file), 'utf8')).format_version)
+    .split('.').map(Number);
+  const withinBaseline =
+    declared[0] < SAFE_ITEM_FORMAT[0] ||
+    (declared[0] === SAFE_ITEM_FORMAT[0] &&
+      (declared[1] < SAFE_ITEM_FORMAT[1] ||
+        (declared[1] === SAFE_ITEM_FORMAT[1] && (declared[2] ?? 0) <= SAFE_ITEM_FORMAT[2])));
+  check(`${id}: format_version ${declared.join('.')} is within the supported baseline`,
+    withinBaseline, `newer than ${SAFE_ITEM_FORMAT.join('.')} - icons may not render on older clients`);
+
   // The icon component must name a key that the atlas actually defines.
   const shorthand = typeof icon === 'string' ? icon : (icon?.texture ?? icon?.textures?.default);
   check(`${id}: icon names an atlas key`, Boolean(shorthand), JSON.stringify(icon));
