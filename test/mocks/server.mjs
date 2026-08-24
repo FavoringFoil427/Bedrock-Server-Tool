@@ -40,6 +40,7 @@ export class Player {
     // A real slot array, so inventory maths is actually exercised.
     this.slots = new Array(36).fill(undefined);
     this.mainhand = undefined;
+    this.experience = 0;
     const slots = this.slots;
     this.container = {
       size: 36,
@@ -63,6 +64,9 @@ export class Player {
   }
   sendMessage(m) { this.messages.push(m); }
   teleport() {}
+  addExperience(amount) { this.experience += amount; return this.experience; }
+  addLevels(amount) { this.experience += amount * 10; return this.experience; }
+  getTotalXp() { return this.experience; }
   getVelocity() { return { x: 0.2, y: 0, z: 0.2 }; }
   getHeadLocation() { return { x: this.location.x, y: this.location.y + 1.6, z: this.location.z }; }
   getViewDirection() { return { x: 0, y: 0, z: 1 }; }

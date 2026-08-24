@@ -2,7 +2,7 @@ import { Player } from '@minecraft/server';
 import { register } from '../core/commands';
 import { cfg } from '../core/config';
 import { Table } from '../core/storage';
-import { profileOf, profiles } from '../core/profiles';
+import { addXp, profileOf, profiles } from '../core/profiles';
 import { giveItem, makeStack, prettyItemName } from '../core/items';
 import { can } from '../core/permissions';
 import { C, err, formatDuration, now, ok, tell } from '../core/util';
@@ -91,17 +91,15 @@ export function ensureDefaultKits(): void {
 export function grant(player: Player, value: Reward): void {
   const profile = profileOf(player);
   if (value.money > 0) addMoney(profile, value.money);
-  if (value.xp > 0) {
-    profile.xp += value.xp;
-    profiles.markDirty();
-  }
+  // Deliberate rewards grant spendable vanilla experience too.
+  if (value.xp > 0) addXp(player, value.xp);
   for (const item of value.items) {
     const stack = makeStack(item.typeId, item.amount);
     if (stack) giveItem(player, stack);
   }
   const parts: string[] = [];
   if (value.money > 0) parts.push(money(value.money));
-  if (value.xp > 0) parts.push(`${value.xp} XP`);
+  if (value.xp > 0) parts.push(`${value.xp} XP${cfg().rewardsGiveVanillaXp ? ' (spendable)' : ''}`);
   for (const item of value.items) parts.push(`${item.amount}x ${prettyItemName(item.typeId)}`);
   tell(player, `${C.good}Received: ${C.reset}${parts.join(', ') || 'nothing'}`);
 }

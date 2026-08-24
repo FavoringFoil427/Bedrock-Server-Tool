@@ -35,6 +35,11 @@ export function install(): void {
       const profile = profileOf(killer);
       if (victim instanceof Player) profile.stats.kills++;
       else profile.stats.mobKills++;
+      /*
+       * Lifetime total only, deliberately not vanilla experience: the game
+       * already pays XP for kills and ore, and topping that up per event would
+       * make enchanting trivial. Vanilla XP comes from deliberate rewards.
+       */
       profile.xp += victim instanceof Player ? 10 : 2;
       profiles.markDirty();
       addSkillXp(killer, 'combat', victim instanceof Player ? 15 : 3);

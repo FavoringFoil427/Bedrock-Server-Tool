@@ -68,6 +68,7 @@ async function openProfile(player: Player): Promise<void> {
     `${C.dim}Mobs: ${C.white}${profile.stats.mobKills}`,
     `${C.dim}Blocks mined: ${C.white}${profile.stats.blocksMined}`,
     `${C.dim}Blocks placed: ${C.white}${profile.stats.blocksPlaced}`,
+    `${C.dim}XP earned: ${C.white}${profile.xp}`,
     `${C.dim}Claim blocks: ${C.white}${profile.claimBlocks}`,
   ].join('\n');
 

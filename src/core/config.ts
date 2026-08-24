@@ -71,6 +71,8 @@ export interface Config {
   dailyRewardEnabled: boolean;
   jobsEnabled: boolean;
   skillsEnabled: boolean;
+  /** Reward XP also grants spendable vanilla experience for enchanting. */
+  rewardsGiveVanillaXp: boolean;
   combatTagSeconds: number;
 
   /** Daily block quotas (0 = unlimited) */
@@ -143,6 +145,7 @@ export function defaultConfig(): Config {
     dailyRewardEnabled: true,
     jobsEnabled: true,
     skillsEnabled: true,
+    rewardsGiveVanillaXp: true,
     combatTagSeconds: 10,
 
     blockQuotaEnabled: false,

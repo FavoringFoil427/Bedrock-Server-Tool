@@ -254,6 +254,28 @@ say(player, '!job miner');
 check('a job can be taken when enabled', player.messages.some((m) => /now a Miner/i.test(m)),
   player.messages.join(' | '));
 
+// Reward XP must arrive as real, spendable vanilla experience.
+player.experience = 0;
+player.dailyClaimed = true;
+say(player, '!daily');
+const claimed = player.messages.some((m) => /Daily reward/i.test(m));
+check('daily reward was claimable', claimed, player.messages.join(' | '));
+if (claimed) {
+  check('reward granted vanilla experience for enchanting', player.experience > 0,
+    `experience = ${player.experience}`);
+}
+
+// Passive gains stay lifetime-only, or enchanting becomes free.
+const beforePassive = player.experience;
+world.afterEvents.playerBreakBlock.emit({
+  player,
+  block: { typeId: 'minecraft:stone', location: { x: 0, y: 64, z: 0 } },
+  brokenBlockPermutation: { type: { id: 'minecraft:stone' } },
+});
+__test.flush();
+check('breaking a block grants no vanilla experience', player.experience === beforePassive,
+  `${beforePassive} -> ${player.experience}`);
+
 // Persistence must survive a shutdown/reload cycle.
 system.beforeEvents.shutdown.emit({});
 __test.flush();

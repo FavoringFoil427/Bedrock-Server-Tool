@@ -52,7 +52,7 @@ the starter kit.
 | **Shop & auction** | Shop starts empty. Staff add unlimited-stock server listings; any player can open a stall backed by their own stock at their own price. Plus sell-hand, bulk deposit and a one-off auction house |
 | **Land claims** | Rectangular claims with trust lists, container and PvP flags, chunk-indexed protection |
 | **Teleporting** | Homes, warps, `!tpa`/`!tpahere` with warmup, random teleport, `!back`, spawn |
-| **Progression** | Rank ladder (automatic and purchasable), five passive skills with milestone perks, jobs that pay for ordinary play, quests |
+| **Progression** | Rank ladder (automatic and purchasable), five passive skills with milestone perks, jobs that pay for ordinary play, quests, and reward XP that doubles as spendable enchanting levels |
 | **Rewards** | Starter kits, daily reward streaks, configurable kits, redeemable codes |
 | **Social** | Clans with a shared bank and clan chat, wagered duels in a bounded ring |
 | **Display** | Custom chat format, custom nametags, scoreboard sidebar, per-player action bar, holograms with live leaderboards |
@@ -190,6 +190,13 @@ A few decisions worth knowing:
 - **Module order matters** in `src/main.ts`: `land` installs PvP protection that
   `duels` deliberately overrides, and `combat` loads after `duels` so duellists
   are exempt from combat tagging.
+- **Two kinds of XP, kept apart.** Skill XP levels the five passive skills and
+  drives the job pay multiplier. Account XP is a lifetime total that feeds rank
+  progression, and deliberate rewards - daily, kits, codes, quests, duel wins -
+  also hand out matching *vanilla* experience, so the number is spendable at an
+  enchanting table. Passive block and kill ticks add to the lifetime total only:
+  the game already pays XP for ore and mobs, and topping that up per event would
+  make enchanting free.
 - **A feature toggle removes the feature, not just its effect.** Jobs are the
   worked example: with the switch off the commands refuse, the menu entry is
   hidden and the Job Board NPC says it is closed, rather than players taking a

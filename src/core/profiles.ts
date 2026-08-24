@@ -120,6 +120,29 @@ export function profileByName(name: string): Profile | undefined {
   );
 }
 
+/**
+ * Awards account XP, and matching vanilla experience so the number is actually
+ * spendable at an enchanting table.
+ *
+ * The two are tracked separately on purpose. Account XP is a lifetime total
+ * that only climbs and feeds rank progression; vanilla XP is a balance the
+ * player spends. Sharing one number would mean enchanting a pickaxe undid
+ * progress somebody had already earned.
+ */
+export function addXp(player: Player, amount: number, vanilla = true): void {
+  if (amount <= 0) return;
+  const profile = profileOf(player);
+  profile.xp += amount;
+  profiles.markDirty();
+
+  if (!vanilla || !cfg().rewardsGiveVanillaXp) return;
+  try {
+    player.addExperience(amount);
+  } catch (error) {
+    console.warn(`[AdminSuite] could not grant vanilla experience: ${error}`);
+  }
+}
+
 export function save(): void {
   profiles.markDirty();
 }

@@ -73,6 +73,7 @@ Every setting lives in the world and is edited in-game through
 | `dailyRewardEnabled` | `boolean` | `true` |  |
 | `jobsEnabled` | `boolean` | `true` |  |
 | `skillsEnabled` | `boolean` | `true` |  |
+| `rewardsGiveVanillaXp` | `boolean` | `true` | Reward XP also grants spendable vanilla experience for enchanting. |
 | `combatTagSeconds` | `number` | `10` |  |
 | `blockQuotaEnabled` | `boolean` | `false` | Daily block quotas (0 = unlimited) |
 | `blockQuotaMined` | `number` | `0` |  |

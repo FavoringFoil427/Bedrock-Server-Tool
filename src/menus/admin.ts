@@ -914,6 +914,7 @@ async function openSettings(player: Player): Promise<void> {
             { kind: 'toggle', label: 'Auto broadcasts', default: config.broadcastEnabled },
             { kind: 'toggle', label: 'Anti spam', default: config.antiSpamEnabled },
             { kind: 'toggle', label: 'Cosmetics', default: config.cosmeticsEnabled },
+            { kind: 'toggle', label: 'Reward XP gives enchanting levels', default: config.rewardsGiveVanillaXp },
           ]);
           if (!values) return;
           saveConfig((c) => {
@@ -931,6 +932,7 @@ async function openSettings(player: Player): Promise<void> {
             c.broadcastEnabled = Boolean(values[11]);
             c.antiSpamEnabled = Boolean(values[12]);
             c.cosmeticsEnabled = Boolean(values[13]);
+            c.rewardsGiveVanillaXp = Boolean(values[14]);
           });
           ok(player, 'Features updated.');
         },

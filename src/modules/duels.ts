@@ -1,7 +1,7 @@
 import { Player, system, world } from '@minecraft/server';
 import { register } from '../core/commands';
 import { cfg } from '../core/config';
-import { profileOf, profiles } from '../core/profiles';
+import { addXp, profileOf, profiles } from '../core/profiles';
 import { StoredLocation } from '../core/profiles';
 import { C, broadcast, distance, err, ok, tell } from '../core/util';
 import { addMoney, charge, money } from './economy';
@@ -89,7 +89,11 @@ function finish(duel: Duel, winnerId: string | undefined, note: string): void {
   const loserId = winnerId === duel.aId ? duel.bId : duel.aId;
   const loser = profiles.get(loserId);
   if (winner && duel.wager > 0) addMoney(winner, duel.wager * 2);
-  if (winner) {
+
+  const winnerPlayer = [a, b].find((p) => p?.id === winnerId);
+  if (winnerPlayer) addXp(winnerPlayer, 25);
+  else if (winner) {
+    // They logged off mid-duel; credit the lifetime total only.
     winner.xp += 25;
     profiles.markDirty();
   }
