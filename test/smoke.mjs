@@ -500,6 +500,28 @@ for (const file of ['member.ts', 'admin.ts']) {
     instructions.map((m) => m[0]).join(' | '));
 }
 
+/*
+ * A resource pack that declares neither the pbr capability nor an addon
+ * product_type silently caps the whole game at Fancy graphics, so nobody can
+ * turn on Vibrant Visuals. Nothing errors and nothing logs; the setting simply
+ * refuses to stick, which is close to impossible to trace back to a pack.
+ */
+const rpManifest = JSON.parse(
+  await readFile(path.join(ROOT, 'packs', 'RP', 'manifest.json'), 'utf8'),
+);
+check('resource pack declares the pbr capability',
+  (rpManifest.capabilities ?? []).includes('pbr'),
+  JSON.stringify(rpManifest.capabilities ?? []));
+check('resource pack is marked as an addon',
+  rpManifest.metadata?.product_type === 'addon',
+  JSON.stringify(rpManifest.metadata ?? {}));
+
+const [major, minor, patch] = rpManifest.header.min_engine_version;
+const meetsPbrFloor =
+  major > 1 || (major === 1 && (minor > 21 || (minor === 21 && patch >= 120)));
+check('min_engine_version meets the 1.21.120 floor pbr requires', meetsPbrFloor,
+  rpManifest.header.min_engine_version.join('.'));
+
 /* ------------------------------------------------------------ pack assets */
 
 /*

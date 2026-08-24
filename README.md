@@ -192,6 +192,11 @@ A few decisions worth knowing:
 - **Module order matters** in `src/main.ts`: `land` installs PvP protection that
   `duels` deliberately overrides, and `combat` loads after `duels` so duellists
   are exempt from combat tagging.
+- **The resource pack declares PBR compatibility.** A pack that declares
+  neither the `pbr` capability nor an addon `product_type` silently caps the
+  whole game at Fancy graphics, so Vibrant Visuals cannot be turned on. Nothing
+  errors and nothing logs, which makes it very hard to trace back to a pack.
+  Both are declared, and a test fails the build if either goes missing.
 - **A menu button does the thing.** Printing "use !claim 16 to confirm" is not
   a menu, it is a manual with extra steps. Every button carries out the action
   itself, which meant lifting the logic out of the command handlers into shared
