@@ -319,6 +319,35 @@ say(player, '!delpwarp SkyMarket');
 check('owner can remove their warp', player.messages.some((m) => /Removed/i.test(m)),
   player.messages.join(' | '));
 
+// Anticheat: illegal items and impossible stacks, without flagging staff.
+player.slots[0] = { typeId: 'minecraft:command_block', amount: 1, maxAmount: 64 };
+player.slots[1] = { typeId: 'minecraft:diamond', amount: 200, maxAmount: 64 };
+say(admin, `!accheck ${player.name}`);
+check('illegal item and overstack were removed',
+  admin.messages.some((m) => /Removed 2/i.test(m)), admin.messages.join(' | '));
+check('the offending slots are now empty',
+  player.slots[0] === undefined && player.slots[1] === undefined);
+
+say(admin, '!aclog');
+check('detections were logged',
+  admin.messages.some((m) => /command_block|Command Block/i.test(m)), admin.messages.join(' | '));
+
+// Staff must not be policed: an admin in creative is doing their job.
+admin.slots[0] = { typeId: 'minecraft:command_block', amount: 1, maxAmount: 64 };
+say(admin, `!accheck ${admin.name}`);
+check('staff are exempt from the anticheat',
+  admin.slots[0] !== undefined, 'an admin had their command block confiscated');
+
+// Breaking a protected block is refused rather than merely logged.
+const breakEvent = {
+  player,
+  block: { typeId: 'minecraft:bedrock', location: { x: 0, y: 5, z: 0 } },
+  cancel: false,
+};
+world.beforeEvents.playerBreakBlock.emit(breakEvent);
+__test.flush();
+check('breaking bedrock is blocked', breakEvent.cancel === true);
+
 // Persistence must survive a shutdown/reload cycle.
 system.beforeEvents.shutdown.emit({});
 __test.flush();

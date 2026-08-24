@@ -24,11 +24,11 @@ Two escape hatches exist:
 | --- | --- | --- |
 | **Owner** | 100 | `*` |
 | **Admin** | 80 | `menu.admin`, `players.*`, `mod.*`, `world.*`, `economy.*`, `tp.*` …(+10) |
-| **Mod** | 60 | `menu.admin`, `players.view`, `players.teleport`, `mod.kick`, `mod.mute`, `mod.freeze` …(+5) |
+| **Mod** | 60 | `menu.admin`, `players.view`, `players.teleport`, `mod.kick`, `mod.mute`, `mod.freeze` …(+6) |
 | **Builder** | 40 | `menu.admin`, `players.gamemode`, `world.time`, `world.weather`, `hologram.admin` |
 | **Member** _(default role)_ | 0 | `menu.member`, `economy.balance`, `economy.pay`, `shop.use`, `shop.sell`, `auction.use` …(+13) |
 
-## All nodes (64)
+## All nodes (65)
 
 ### General
 
@@ -60,6 +60,7 @@ Two escape hatches exist:
 - `mod.vanish`
 - `mod.spy`
 - `mod.reports`
+- `bypass.anticheat`
 
 ### World
 

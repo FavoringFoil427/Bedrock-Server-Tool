@@ -1,5 +1,58 @@
 import { Value } from './storage';
 
+
+
+/** Items that cannot be obtained legitimately in survival. */
+export const DEFAULT_ILLEGAL_ITEMS = [
+  'minecraft:command_block',
+  'minecraft:chain_command_block',
+  'minecraft:repeating_command_block',
+  'minecraft:command_block_minecart',
+  'minecraft:structure_block',
+  'minecraft:structure_void',
+  'minecraft:jigsaw',
+  'minecraft:barrier',
+  'minecraft:light_block',
+  'minecraft:allow',
+  'minecraft:deny',
+  'minecraft:border_block',
+  'minecraft:bedrock',
+  'minecraft:end_portal_frame',
+  'minecraft:monster_egg',
+  'minecraft:mob_spawner',
+  'minecraft:budding_amethyst',
+  'minecraft:dragon_egg',
+  'minecraft:infested_deepslate',
+];
+
+/** Blocks nobody but staff may place. */
+export const DEFAULT_BANNED_BLOCKS = [
+  'minecraft:command_block',
+  'minecraft:chain_command_block',
+  'minecraft:repeating_command_block',
+  'minecraft:structure_block',
+  'minecraft:jigsaw',
+  'minecraft:barrier',
+  'minecraft:bedrock',
+  'minecraft:allow',
+  'minecraft:deny',
+  'minecraft:border_block',
+];
+
+/** Blocks that must not be broken by ordinary players. */
+export const DEFAULT_PROTECTED_BLOCKS = [
+  'minecraft:bedrock',
+  'minecraft:barrier',
+  'minecraft:command_block',
+  'minecraft:chain_command_block',
+  'minecraft:repeating_command_block',
+  'minecraft:structure_block',
+  'minecraft:jigsaw',
+  'minecraft:end_portal_frame',
+  'minecraft:end_portal',
+  'minecraft:nether_portal',
+];
+
 /** Every tunable the settings menu can edit. Stored as one JSON blob. */
 export interface Config {
   /** Chat prefix for text commands (native `/adm:` commands always work too). */
@@ -86,6 +139,18 @@ export interface Config {
   blockQuotaMined: number;
   blockQuotaPlaced: number;
 
+  /** Anticheat: illegal items, duplication signatures and protected blocks. */
+  anticheatEnabled: boolean;
+  anticheatAlertStaff: boolean;
+  anticheatCheckOverstacks: boolean;
+  /** Violations before an automatic ban. 0 never auto-bans. */
+  anticheatBanThreshold: number;
+  /** Seconds between background inventory sweeps. 0 disables them. */
+  anticheatScanSeconds: number;
+  anticheatIllegalItems: string[];
+  anticheatBannedBlocks: string[];
+  anticheatProtectedBlocks: string[];
+
   /** Moderation */
   antiSpamEnabled: boolean;
   antiSpamIntervalMs: number;
@@ -161,6 +226,15 @@ export function defaultConfig(): Config {
     blockQuotaEnabled: false,
     blockQuotaMined: 0,
     blockQuotaPlaced: 0,
+
+    anticheatEnabled: true,
+    anticheatAlertStaff: true,
+    anticheatCheckOverstacks: true,
+    anticheatBanThreshold: 0,
+    anticheatScanSeconds: 10,
+    anticheatIllegalItems: [...DEFAULT_ILLEGAL_ITEMS],
+    anticheatBannedBlocks: [...DEFAULT_BANNED_BLOCKS],
+    anticheatProtectedBlocks: [...DEFAULT_PROTECTED_BLOCKS],
 
     antiSpamEnabled: true,
     antiSpamIntervalMs: 700,

@@ -41,6 +41,7 @@ export class Player {
     this.slots = new Array(36).fill(undefined);
     this.mainhand = undefined;
     this.experience = 0;
+    this.gameMode = 'survival';
     const slots = this.slots;
     this.container = {
       size: 36,
@@ -56,8 +57,8 @@ export class Player {
   }
 
   /** Test helper: put a stack in the inventory and in hand. */
-  hold(typeId, amount) {
-    const stack = { typeId, amount };
+  hold(typeId, amount, maxAmount = 64) {
+    const stack = { typeId, amount, maxAmount };
     this.slots[0] = stack;
     this.mainhand = stack;
     return stack;
@@ -75,7 +76,8 @@ export class Player {
   hasTag(t) { return this.tags.has(t); }
   addTag(t) { this.tags.add(t); return true; }
   removeTag(t) { return this.tags.delete(t); }
-  setGameMode() {}
+  setGameMode(m) { this.gameMode = m; }
+  getGameMode() { return this.gameMode ?? 'survival'; }
   runCommand() { return { successCount: 1 }; }
   getComponent(id) {
     if (id === 'minecraft:health') return { currentValue: 20, effectiveMax: 20, resetToMaxValue() {} };
@@ -186,6 +188,7 @@ export class ItemStack {
     if (typeof typeId !== 'string' || !typeId.includes(':')) throw new Error(`bad item ${typeId}`);
     this.typeId = typeId;
     this.amount = amount;
+    this.maxAmount = 64;
   }
 }
 

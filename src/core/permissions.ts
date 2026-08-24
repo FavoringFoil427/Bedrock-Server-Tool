@@ -45,6 +45,7 @@ export const PERMISSION_GROUPS: Record<string, string[]> = {
     'mod.vanish',
     'mod.spy',
     'mod.reports',
+    'bypass.anticheat',
   ],
   World: [
     'world.time',
@@ -95,7 +96,8 @@ export function ensureDefaultRoles(): void {
       priority: 60,
       permissions: [
         'menu.admin', 'players.view', 'players.teleport', 'mod.kick', 'mod.mute',
-        'mod.freeze', 'mod.vanish', 'mod.spy', 'mod.reports', 'world.time', 'world.weather',
+        'mod.freeze', 'mod.vanish', 'mod.spy', 'mod.reports',
+    'bypass.anticheat', 'world.time', 'world.weather',
       ],
     },
     {

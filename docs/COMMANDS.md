@@ -9,7 +9,7 @@ Every command works two ways:
 
 Arguments in `<angle brackets>` are required; `[square brackets]` are optional.
 
-There are **110 commands** across 12 categories.
+There are **114 commands** across 12 categories.
 
 ## Account
 
@@ -84,6 +84,10 @@ There are **110 commands** across 12 categories.
 
 | Command | Permission | Description |
 | --- | --- | --- |
+| `!ac` <br>_aliases: `anticheat`_ | `mod.reports` | Show anticheat status. |
+| `!accheck <player>` | `mod.reports` | Scan a player's inventory now. |
+| `!acclear` | `server.data` | Clear the anticheat log and violation counts. |
+| `!aclog` | `mod.reports` | Show recent anticheat detections. |
 | `!ban <player> [duration] [reason]` | `mod.ban` | Ban a player, optionally for a duration (30m, 2h, 7d). |
 | `!banlist` | `mod.ban` | List active bans. |
 | `!freeze <player>` | `mod.freeze` | Freeze or unfreeze a player in place. |

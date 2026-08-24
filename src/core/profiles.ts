@@ -62,6 +62,9 @@ export interface Profile {
   cosmeticsOwned?: string[];
   cosmeticEquipped?: string;
 
+  /** Anticheat detections attributed to this player. */
+  acViolations?: number;
+
   /** Calendar day the block quota counters belong to. */
   quotaDay?: string;
   quotaMined?: number;

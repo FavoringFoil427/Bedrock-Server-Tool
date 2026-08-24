@@ -1,6 +1,12 @@
 import { EquipmentSlot, GameMode, Player, world } from '@minecraft/server';
 import { menu, paged, prompt, askText, confirm } from '../core/ui';
-import { cfg, saveConfig } from '../core/config';
+import {
+  DEFAULT_BANNED_BLOCKS,
+  DEFAULT_ILLEGAL_ITEMS,
+  DEFAULT_PROTECTED_BLOCKS,
+  cfg,
+  saveConfig,
+} from '../core/config';
 import { Profile, profileOf, profiles } from '../core/profiles';
 import {
   PERMISSION_GROUPS,
@@ -19,6 +25,7 @@ import { cleanEntities, setTime, setWeather } from '../modules/worldtools';
 import { holograms } from '../modules/display';
 import { warps } from '../modules/teleport';
 import { playerWarps, popularWarps, removePlayerWarp } from '../modules/playerwarps';
+import { scanInventory, violations } from '../modules/anticheat';
 import { claims } from '../modules/land';
 import { shopItems, unlist } from '../modules/shop';
 import { codes, kits } from '../modules/rewards';
@@ -313,6 +320,10 @@ async function openModeration(player: Player): Promise<void> {
           }),
       },
       {
+        text: `${C.bad}Anticheat`,
+        onClick: () => openAnticheat(player),
+      },
+      {
         text: `${C.accent}Chat filter`,
         onClick: async () => {
           const current = cfg().bannedWords.join(', ');
@@ -326,6 +337,144 @@ async function openModeration(player: Player): Promise<void> {
       },
     ],
     back: () => openAdminMenu(player),
+  });
+}
+
+/** Anticheat: status, detection log, watched lists and escalation. */
+async function openAnticheat(admin: Player): Promise<void> {
+  const config = cfg();
+  const recent = violations.values().sort((a, b) => b.at - a.at);
+  const offenders = new Map<string, number>();
+  for (const entry of recent) offenders.set(entry.playerName, (offenders.get(entry.playerName) ?? 0) + 1);
+
+  await menu(admin, {
+    title: `${C.title}Anticheat`,
+    body: [
+      `${C.dim}Status: ${config.anticheatEnabled ? `${C.good}on` : `${C.bad}off`}`,
+      `${C.dim}Detections logged: ${C.white}${recent.length}`,
+      `${C.dim}Players flagged: ${C.white}${offenders.size}`,
+      `${C.dim}Auto ban at: ${C.white}${config.anticheatBanThreshold || 'never'}`,
+    ].join('\n'),
+    buttons: [
+      {
+        text: `${config.anticheatEnabled ? C.bad : C.good}Turn anticheat ${config.anticheatEnabled ? 'off' : 'on'}`,
+        onClick: async () => {
+          saveConfig((c) => {
+            c.anticheatEnabled = !c.anticheatEnabled;
+          });
+          ok(admin, `Anticheat ${cfg().anticheatEnabled ? 'enabled' : 'disabled'}.`);
+          await openAnticheat(admin);
+        },
+      },
+      {
+        text: `${C.warn}Detection log (${recent.length})`,
+        onClick: () =>
+          paged(admin, {
+            title: `${C.title}Detections`,
+            body: `${C.dim}Newest first. Tap an entry to open that player.`,
+            items: recent,
+            render: (entry) => ({
+              text: `${C.bad}${entry.playerName}\n${C.dim}${entry.detail} - ${entry.action}`,
+            }),
+            onPick: (entry) => {
+              const profile = profiles.get(entry.playerId);
+              if (!profile) return err(admin, 'That player no longer has a profile.');
+              return openPlayer(admin, profile);
+            },
+            back: () => openAnticheat(admin),
+          }),
+      },
+      {
+        text: `${C.warn}Flagged players (${offenders.size})`,
+        onClick: () =>
+          menu(admin, {
+            title: `${C.title}Flagged players`,
+            body: offenders.size === 0
+              ? `${C.dim}Nobody has been flagged.`
+              : `${C.dim}Detections attributed to each player.`,
+            buttons: [...offenders.entries()]
+              .sort((a, b) => b[1] - a[1])
+              .map(([name, count]) => ({
+                text: `${C.bad}${name} ${C.dim}- ${count} detection${count === 1 ? '' : 's'}`,
+                onClick: async () => {
+                  const profile = profiles.values().find((p) => p.name === name);
+                  if (profile) await openPlayer(admin, profile);
+                },
+              })),
+            back: () => openAnticheat(admin),
+          }),
+      },
+      {
+        text: `${C.accent}Checks and escalation`,
+        onClick: async () => {
+          const values = await prompt(admin, 'Anticheat settings', [
+            { kind: 'toggle', label: 'Alert staff on detection', default: config.anticheatAlertStaff },
+            { kind: 'toggle', label: 'Detect impossible stack sizes', default: config.anticheatCheckOverstacks },
+            { kind: 'slider', label: 'Background sweep (seconds, 0 = off)', min: 0, max: 120, step: 5, default: config.anticheatScanSeconds },
+            { kind: 'text', label: 'Auto ban after N detections (0 = never)', default: String(config.anticheatBanThreshold) },
+          ]);
+          if (!values) return;
+          saveConfig((c) => {
+            c.anticheatAlertStaff = Boolean(values[0]);
+            c.anticheatCheckOverstacks = Boolean(values[1]);
+            c.anticheatScanSeconds = Number(values[2]);
+            c.anticheatBanThreshold = Math.max(0, Number.parseInt(String(values[3]), 10) || 0);
+          });
+          ok(admin, 'Anticheat settings saved.');
+        },
+      },
+      {
+        text: `${C.accent}Watched items and blocks`,
+        onClick: async () => {
+          const current = cfg();
+          const values = await prompt(admin, 'Watched lists', [
+            { kind: 'text', label: 'Illegal items (comma separated)', default: current.anticheatIllegalItems.join(', ') },
+            { kind: 'text', label: 'Blocks nobody may place', default: current.anticheatBannedBlocks.join(', ') },
+            { kind: 'text', label: 'Blocks nobody may break', default: current.anticheatProtectedBlocks.join(', ') },
+            { kind: 'toggle', label: 'Restore the built-in lists instead', default: false },
+          ]);
+          if (!values) return;
+
+          const parse = (text: string) =>
+            text.split(',').map((entry) => entry.trim()).filter(Boolean)
+              .map((entry) => (entry.includes(':') ? entry : `minecraft:${entry}`));
+
+          saveConfig((c) => {
+            if (values[3]) {
+              c.anticheatIllegalItems = [...DEFAULT_ILLEGAL_ITEMS];
+              c.anticheatBannedBlocks = [...DEFAULT_BANNED_BLOCKS];
+              c.anticheatProtectedBlocks = [...DEFAULT_PROTECTED_BLOCKS];
+              return;
+            }
+            c.anticheatIllegalItems = parse(String(values[0]));
+            c.anticheatBannedBlocks = parse(String(values[1]));
+            c.anticheatProtectedBlocks = parse(String(values[2]));
+          });
+          ok(admin, `Watching ${cfg().anticheatIllegalItems.length} items and ${cfg().anticheatBannedBlocks.length} blocks.`);
+        },
+      },
+      {
+        text: `${C.accent}Scan everyone now`,
+        onClick: async () => {
+          let removed = 0;
+          for (const online of world.getAllPlayers()) removed += scanInventory(online);
+          ok(admin, removed === 0 ? 'Everyone is clean.' : `Removed ${removed} illegal item(s).`);
+        },
+      },
+      {
+        text: `${C.bad}Clear log and counts`,
+        onClick: async () => {
+          const yes = await confirm(admin, 'Clear anticheat log',
+            'Wipe every detection and reset all violation counts? Players close to an automatic ban will start over.');
+          if (!yes) return;
+          violations.clear();
+          for (const profile of profiles.values()) delete profile.acViolations;
+          profiles.markDirty();
+          ok(admin, 'Anticheat log cleared.');
+        },
+      },
+    ],
+    back: () => openModeration(admin),
   });
 }
 
