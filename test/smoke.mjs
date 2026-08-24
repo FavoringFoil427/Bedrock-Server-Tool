@@ -359,6 +359,41 @@ check('a new player receives the starter kit contents',
   kitItems.some((slot) => slot.typeId === 'minecraft:stone_sword'),
   `held: ${fresh.slots.filter(Boolean).map((s) => s.typeId).join(', ') || 'nothing'}`);
 
+// The continuous sweep must pop a piston set up next to a shulker box.
+const dim = __test.overworld;
+dim.setBlock(3, 64, 3, 'minecraft:piston', { facing_direction: 5 });
+dim.setBlock(4, 64, 3, 'minecraft:purple_shulker_box');
+dim.placed.length = 0;
+admin.messages.length = 0;
+
+for (const loop of system.intervals) loop.cb();
+__test.flush();
+
+const popped = dim.placed.some((entry) => entry.type === 'minecraft:air');
+check('the sweep neutralises a piston beside a shulker', popped,
+  `setBlockType calls: ${JSON.stringify(dim.placed)}`);
+check('the piston is gone from the world', dim.getBlock({ x: 3, y: 64, z: 3 }) === undefined);
+check('staff were told about it', /piston/i.test(admin.messages.join(' | ')),
+  admin.messages.join(' | '));
+
+// A shulker piped through a hopper is the funnel half of a storage dupe.
+const hopperSlots = [{ typeId: 'minecraft:purple_shulker_box', amount: 1, maxAmount: 1 }];
+const hopperContainer = {
+  size: 5,
+  getItem: (i) => hopperSlots[i],
+  setItem: (i, v) => { hopperSlots[i] = v; },
+};
+dim.setBlock(2, 64, 2, 'minecraft:hopper', {}, hopperContainer);
+admin.messages.length = 0;
+
+for (const loop of system.intervals) loop.cb();
+__test.flush();
+
+check('a shulker funnelled through a hopper is removed', hopperSlots[0] === undefined,
+  `hopper still held ${hopperSlots[0]?.typeId ?? 'nothing'}`);
+check('the funnel exploit was reported', /hopper|shulker/i.test(admin.messages.join(' | ')),
+  admin.messages.join(' | '));
+
 // Minecart chest dupe: two removals at one spot inside the window. This runs
 // off the before-event, because the after-event carries no location at all.
 const cartAt = { x: 10, y: 64, z: 10 };
@@ -401,9 +436,15 @@ console.log(`  ${__test.props.size} persisted storage keys`);
  * field. Cheap to get wrong, invisible in play, so it is checked here.
  */
 const adminSource = await readFile(path.join(ROOT, 'src', 'menus', 'admin.ts'), 'utf8');
-for (const [form, marker] of [['Features', "prompt(player, 'Features'"]]) {
+for (const [form, marker] of [
+  ['Features', "prompt(player, 'Features'"],
+  ['Anticheat', "prompt(admin, 'Anticheat settings'"],
+]) {
   const from = adminSource.indexOf(marker);
-  const body = adminSource.slice(from, adminSource.indexOf('ok(player,', from));
+  const closer = adminSource.indexOf('ok(player,', from);
+  const adminCloser = adminSource.indexOf('ok(admin,', from);
+  const end = Math.min(...[closer, adminCloser].filter((i) => i > from));
+  const body = adminSource.slice(from, end);
   const labels = [...body.matchAll(/label: '([^']+)'/g)].length;
   const indices = [...body.matchAll(/values\[(\d+)\]/g)].map((m) => Number(m[1]));
   const unique = [...new Set(indices)].sort((a, b) => a - b);

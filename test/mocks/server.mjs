@@ -96,8 +96,23 @@ class Dimension {
   getEntities() { return []; }
   getPlayers() { return world.getAllPlayers(); }
   getTopmostBlock() { return { location: { x: 0, y: 64, z: 0 } }; }
-  getBlock(loc) { return this.blocks?.get(`${loc.x},${loc.y},${loc.z}`); }
-  setBlockType(loc, type) { this.placed?.push({ loc, type }); }
+  getBlock(loc) { return this.blocks.get(`${loc.x},${loc.y},${loc.z}`); }
+  setBlockType(loc, type) {
+    this.placed.push({ loc, type });
+    if (type === 'minecraft:air') this.blocks.delete(`${loc.x},${loc.y},${loc.z}`);
+    else this.setBlock(loc.x, loc.y, loc.z, type);
+  }
+  /** Test helper: put a block into this dimension. */
+  setBlock(x, y, z, typeId, states = {}, container) {
+    const dimension = this;
+    this.blocks.set(`${x},${y},${z}`, {
+      typeId,
+      location: { x, y, z },
+      dimension,
+      permutation: { getAllStates: () => states },
+      getComponent: (id) => (id === 'minecraft:inventory' && container ? { container } : undefined),
+    });
+  }
   spawnEntity() {
     return { nameTag: '', getDynamicProperty() {}, setDynamicProperty() {}, remove() {}, location: { x: 0, y: 0, z: 0 } };
   }

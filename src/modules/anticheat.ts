@@ -22,6 +22,8 @@ import { banProfile, notifyStaff } from './moderation';
  */
 
 export type ViolationKind =
+  | 'bundle_exploit'
+  | 'container_item'
   | 'illegal_item'
   | 'overstack'
   | 'banned_block'
@@ -243,6 +245,82 @@ function hasAdjacentShulker(dimension: Dimension, at: Vector3): boolean {
     }
   }
   return false;
+}
+
+/** Blocks a piston physically cannot push past; stop tracing the line here. */
+function stopsPistonPush(typeId: string): boolean {
+  return (
+    typeId === 'minecraft:air' ||
+    typeId === 'minecraft:obsidian' ||
+    typeId === 'minecraft:bedrock' ||
+    typeId === 'minecraft:barrier' ||
+    isPiston(typeId)
+  );
+}
+
+/**
+ * Sweep-time piston check.
+ *
+ * Reading a piston's facing proved unreliable across versions, so adjacency
+ * comes first: a shulker box touching a piston on any side is virtually never a
+ * real build. The push line is then traced as a bonus, which catches a
+ * container sitting behind a pushed block, or one further down the line.
+ *
+ * The sweep cannot attribute a setup to whoever built it, so it removes and
+ * alerts without counting toward anybody's ban. Attribution happens at
+ * placement time instead.
+ */
+function checkPistonSetup(piston: Block, dimension: Dimension): void {
+  const at = piston.location;
+  if (hasAdjacentShulker(dimension, at)) {
+    neutralisePiston(piston, 'shulker_box', undefined);
+    return;
+  }
+
+  const facing = pistonFacing(piston);
+  if (!facing) return;
+
+  for (let step = 1; step <= 12; step++) {
+    const probe = { x: at.x + facing.x * step, y: at.y + facing.y * step, z: at.z + facing.z * step };
+    let block;
+    try {
+      block = dimension.getBlock(probe);
+    } catch {
+      return;
+    }
+    if (!block) return;
+
+    if (isDupeContainer(block.typeId)) {
+      neutralisePiston(piston, block.typeId.replace('minecraft:', ''), undefined);
+      return;
+    }
+    if (hasAdjacentShulker(dimension, probe)) {
+      neutralisePiston(piston, 'shulker_box', undefined);
+      return;
+    }
+    if (stopsPistonPush(block.typeId)) return;
+  }
+}
+
+/** Containers a bundle or shulker exploit can be funnelled through. */
+function isFunnelContainer(typeId: string): boolean {
+  return typeId === 'minecraft:hopper' || typeId === 'minecraft:dispenser' || typeId === 'minecraft:dropper';
+}
+
+/**
+ * Containers worth sweeping for illegal items. The ender chest is excluded
+ * deliberately: its contents are per-player and not really "there", so touching
+ * it would delete items belonging to someone who is not present.
+ */
+function isScannableContainer(typeId: string): boolean {
+  if (typeId === 'minecraft:ender_chest') return false;
+  if (typeId.endsWith('shulker_box')) return true;
+  return (
+    typeId === 'minecraft:chest' ||
+    typeId === 'minecraft:trapped_chest' ||
+    typeId === 'minecraft:barrel' ||
+    isFunnelContainer(typeId)
+  );
 }
 
 export function install(): void {
@@ -485,6 +563,90 @@ export function install(): void {
       }
     }
   }, 5);
+
+  /*
+   * One cube sweep per player serving three checks at once: piston setups,
+   * bundle and shulker exploits being funnelled through hoppers, and illegal
+   * items stashed in nearby containers. Doing them together means each block is
+   * fetched once rather than three times over separate intervals, which is what
+   * makes a radius-6 sweep affordable at this cadence.
+   */
+  system.runInterval(() => {
+    const config = cfg();
+    if (!config.anticheatEnabled || !config.anticheatNearbyScan) return;
+
+    const radius = config.anticheatScanRadius;
+    const illegal = new Set(config.anticheatIllegalItems);
+
+    for (const player of world.getAllPlayers()) {
+      if (exemptFromAnticheat(player)) continue;
+      const dimension = player.dimension;
+      const origin = {
+        x: Math.floor(player.location.x),
+        y: Math.floor(player.location.y),
+        z: Math.floor(player.location.z),
+      };
+
+      for (let dx = -radius; dx <= radius; dx++) {
+        for (let dy = -radius; dy <= radius; dy++) {
+          for (let dz = -radius; dz <= radius; dz++) {
+            let block;
+            try {
+              block = dimension.getBlock({ x: origin.x + dx, y: origin.y + dy, z: origin.z + dz });
+            } catch {
+              continue;
+            }
+            if (!block) continue;
+            const typeId = block.typeId;
+
+            if (config.anticheatPistonDupe && isPiston(typeId)) {
+              checkPistonSetup(block, dimension);
+              continue;
+            }
+
+            const sweepFunnel = config.anticheatBundleExploit && isFunnelContainer(typeId);
+            const sweepItems = config.anticheatContainerScan && isScannableContainer(typeId);
+            if (!sweepFunnel && !sweepItems) continue;
+
+            const container = block.getComponent('minecraft:inventory')?.container;
+            if (!container) continue;
+
+            for (let slot = 0; slot < container.size; slot++) {
+              const item = container.getItem(slot);
+              if (!item) continue;
+
+              /*
+               * A bundle or shulker inside a hopper, dispenser or dropper is
+               * the funnel half of a storage duplication exploit; neither has
+               * any legitimate reason to be piped through one.
+               */
+              if (sweepFunnel && (item.typeId.includes('bundle') || item.typeId.includes('shulker_box'))) {
+                container.setItem(slot, undefined);
+                flag(
+                  player,
+                  'bundle_exploit',
+                  `${prettyItemName(item.typeId)} funnelled through a ${typeId.replace('minecraft:', '')} at ${formatVec(block.location)}`,
+                  'item removed',
+                );
+                break;
+              }
+
+              if (sweepItems && illegal.has(item.typeId)) {
+                container.setItem(slot, undefined);
+                flag(
+                  player,
+                  'container_item',
+                  `${prettyItemName(item.typeId)} stashed in a container at ${formatVec(block.location)}`,
+                  'item removed',
+                  false,
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+  }, 10);
 
   // Periodic sweep, staggered so a full server never scans everyone at once.
   let cursor = 0;

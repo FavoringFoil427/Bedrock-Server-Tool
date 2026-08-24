@@ -581,6 +581,10 @@ async function openAnticheat(admin: Player): Promise<void> {
             { kind: 'toggle', label: 'Piston container dupe protection', default: config.anticheatPistonDupe },
             { kind: 'toggle', label: 'Minecart chest dupe detection', default: config.anticheatMinecartDupe },
             { kind: 'toggle', label: 'Nether portal dupe protection', default: config.anticheatPortalDupe },
+            { kind: 'toggle', label: 'Continuous sweep around players', default: config.anticheatNearbyScan },
+            { kind: 'slider', label: 'Sweep radius (blocks)', min: 2, max: 10, step: 1, default: config.anticheatScanRadius },
+            { kind: 'toggle', label: 'Sweep nearby containers for illegal items', default: config.anticheatContainerScan },
+            { kind: 'toggle', label: 'Block bundle/shulker funnel exploits', default: config.anticheatBundleExploit },
           ]);
           if (!values) return;
           saveConfig((c) => {
@@ -591,6 +595,10 @@ async function openAnticheat(admin: Player): Promise<void> {
             c.anticheatPistonDupe = Boolean(values[4]);
             c.anticheatMinecartDupe = Boolean(values[5]);
             c.anticheatPortalDupe = Boolean(values[6]);
+            c.anticheatNearbyScan = Boolean(values[7]);
+            c.anticheatScanRadius = Number(values[8]);
+            c.anticheatContainerScan = Boolean(values[9]);
+            c.anticheatBundleExploit = Boolean(values[10]);
           });
           ok(admin, 'Anticheat settings saved.');
         },

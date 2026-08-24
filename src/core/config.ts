@@ -155,6 +155,15 @@ export interface Config {
   anticheatPistonDupe: boolean;
   anticheatMinecartDupe: boolean;
   anticheatPortalDupe: boolean;
+  /**
+   * Continuous sweep of the blocks around each player. One cube pass serves the
+   * piston, funnel and container checks together, so the radius is the single
+   * dial that governs all three.
+   */
+  anticheatNearbyScan: boolean;
+  anticheatScanRadius: number;
+  anticheatContainerScan: boolean;
+  anticheatBundleExploit: boolean;
   anticheatIllegalItems: string[];
   anticheatBannedBlocks: string[];
   anticheatProtectedBlocks: string[];
@@ -245,6 +254,10 @@ export function defaultConfig(): Config {
     anticheatPistonDupe: true,
     anticheatMinecartDupe: true,
     anticheatPortalDupe: true,
+    anticheatNearbyScan: true,
+    anticheatScanRadius: 6,
+    anticheatContainerScan: true,
+    anticheatBundleExploit: true,
     anticheatIllegalItems: [...DEFAULT_ILLEGAL_ITEMS],
     anticheatBannedBlocks: [...DEFAULT_BANNED_BLOCKS],
     anticheatProtectedBlocks: [...DEFAULT_PROTECTED_BLOCKS],

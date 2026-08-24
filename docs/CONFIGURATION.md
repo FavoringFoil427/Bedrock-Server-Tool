@@ -91,6 +91,10 @@ Every setting lives in the world and is edited in-game through
 | `anticheatPistonDupe` | `boolean` | `true` | Duplication vectors, each independently switchable. |
 | `anticheatMinecartDupe` | `boolean` | `true` |  |
 | `anticheatPortalDupe` | `boolean` | `true` |  |
+| `anticheatNearbyScan` | `boolean` | `true` | Continuous sweep of the blocks around each player. One cube pass serves the piston, funnel and container checks together, so the radius is the single dial that governs all three. |
+| `anticheatScanRadius` | `number` | `6` |  |
+| `anticheatContainerScan` | `boolean` | `true` |  |
+| `anticheatBundleExploit` | `boolean` | `true` |  |
 | `anticheatIllegalItems` | `string[]` | `[...DEFAULT_ILLEGAL_ITEMS]` |  |
 | `anticheatBannedBlocks` | `string[]` | `[...DEFAULT_BANNED_BLOCKS]` |  |
 | `anticheatProtectedBlocks` | `string[]` | `[...DEFAULT_PROTECTED_BLOCKS]` |  |
