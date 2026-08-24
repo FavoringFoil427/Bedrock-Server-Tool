@@ -12,7 +12,6 @@ import * as teleport from './modules/teleport';
 import * as playerwarps from './modules/playerwarps';
 import * as land from './modules/land';
 import * as moderation from './modules/moderation';
-import * as anticheat from './modules/anticheat';
 import * as worldtools from './modules/worldtools';
 import * as ranks from './modules/ranks';
 import * as skills from './modules/skills';
@@ -67,7 +66,6 @@ const MODULES: Module[] = [
   land,
   playerwarps,
   moderation,
-  anticheat,
   suite,
   gravestone,
   worldtools,

@@ -47,7 +47,6 @@ the starter kit.
 | **Roles & permissions** | Unlimited roles, ~60 permission nodes with wildcards (`players.*`), priority ordering, chat prefixes, default roles |
 | **Player management** | Browse every known player online or off; teleport, game mode, heal, inventory view/edit, vault, balance, roles |
 | **Moderation** | Timed and permanent bans, mutes, kick, freeze, vanish, staff spy channel, player reports, chat word filter, anti-spam |
-| **Anticheat** | Illegal item sweeps, impossible-stack detection, piston/minecart/nether-portal duplication protection, bundle and shulker funnel blocking, a continuous sweep of the blocks around each player, banned block placement, protected block breaking, a detection log and optional automatic banning |
 | **World management** | Time, weather, difficulty, game rules, entity cleanup, soft world border |
 | **Economy** | Balances, transfers with configurable tax, leaderboard, admin adjustment, bulk `!deposit` |
 | **Shop & auction** | Shop starts empty. Staff add unlimited-stock server listings; any player can open a stall backed by their own stock at their own price. Plus sell-hand, bulk deposit and a one-off auction house |
@@ -218,21 +217,6 @@ A few decisions worth knowing:
   moves it. A stray one is invisible and effectively permanent, so every path
   that ends the effect clears it, only air is ever replaced, and only a light
   block is ever cleared.
-- **One cube sweep, three checks.** The continuous sweep around each player
-  serves the piston, funnel and container checks in a single pass, so each block
-  is fetched once rather than three times over separate intervals. That is what
-  makes a radius-6 sweep affordable every ten ticks; the radius is one dial
-  governing all three.
-- **Proof and pattern are treated differently.** A stack larger than the item's
-  own maximum is proof and counts toward escalation; two chest minecarts vanishing
-  at one spot is a pattern, so it alerts staff and is explicitly not counted.
-  Piston setups are broken by popping the *piston*, returned as an item, never
-  the container - a false positive should cost one piston, not somebody's gear.
-- **Anticheat detects cheaply and punishes reluctantly.** Every check removes
-  the item or blocks the action, logs it and tells staff; a ban only follows
-  once a player crosses a threshold the server sets, and never on one hit, so a
-  false positive cannot ban someone outright. Staff and creative mode are exempt
-  throughout: an admin holding a command block is doing their job.
 - **Three tiers of destination, deliberately separate.** A home is private to
   one player; a server warp is public but staff-only to create; a player warp is
   public and anyone may publish one. They live in separate tables and separate

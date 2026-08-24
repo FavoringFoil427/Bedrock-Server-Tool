@@ -319,35 +319,6 @@ say(player, '!delpwarp SkyMarket');
 check('owner can remove their warp', player.messages.some((m) => /Removed/i.test(m)),
   player.messages.join(' | '));
 
-// Anticheat: illegal items and impossible stacks, without flagging staff.
-player.slots[0] = { typeId: 'minecraft:command_block', amount: 1, maxAmount: 64 };
-player.slots[1] = { typeId: 'minecraft:diamond', amount: 200, maxAmount: 64 };
-say(admin, `!accheck ${player.name}`);
-check('illegal item and overstack were removed',
-  admin.messages.some((m) => /Removed 2/i.test(m)), admin.messages.join(' | '));
-check('the offending slots are now empty',
-  player.slots[0] === undefined && player.slots[1] === undefined);
-
-say(admin, '!aclog');
-check('detections were logged',
-  admin.messages.some((m) => /command_block|Command Block/i.test(m)), admin.messages.join(' | '));
-
-// Staff must not be policed: an admin in creative is doing their job.
-admin.slots[0] = { typeId: 'minecraft:command_block', amount: 1, maxAmount: 64 };
-say(admin, `!accheck ${admin.name}`);
-check('staff are exempt from the anticheat',
-  admin.slots[0] !== undefined, 'an admin had their command block confiscated');
-
-// Breaking a protected block is refused rather than merely logged.
-const breakEvent = {
-  player,
-  block: { typeId: 'minecraft:bedrock', location: { x: 0, y: 5, z: 0 } },
-  cancel: false,
-};
-world.beforeEvents.playerBreakBlock.emit(breakEvent);
-__test.flush();
-check('breaking bedrock is blocked', breakEvent.cancel === true);
-
 // The starter kit is handed out on first join while it is switched on.
 const fresh = new Player('Fresh', 'p-fresh');
 __test.players.push(fresh);
@@ -426,43 +397,6 @@ check('putting the torch away clears the light',
   lightDim.placed.some((entry) => entry.type === 'minecraft:air'),
   JSON.stringify(lightDim.placed.slice(0, 3)));
 
-// The continuous sweep must pop a piston set up next to a shulker box.
-const dim = __test.overworld;
-dim.setBlock(3, 64, 3, 'minecraft:piston', { facing_direction: 5 });
-dim.setBlock(4, 64, 3, 'minecraft:purple_shulker_box');
-dim.placed.length = 0;
-admin.messages.length = 0;
-
-for (const loop of system.intervals) loop.cb();
-__test.flush();
-
-const popped = dim.placed.some((entry) => entry.type === 'minecraft:air');
-check('the sweep neutralises a piston beside a shulker', popped,
-  `setBlockType calls: ${JSON.stringify(dim.placed)}`);
-check('the piston is gone from the world',
-  dim.getBlock({ x: 3, y: 64, z: 3 })?.typeId === 'minecraft:air',
-  `block is now ${dim.getBlock({ x: 3, y: 64, z: 3 })?.typeId}`);
-check('staff were told about it', /piston/i.test(admin.messages.join(' | ')),
-  admin.messages.join(' | '));
-
-// A shulker piped through a hopper is the funnel half of a storage dupe.
-const hopperSlots = [{ typeId: 'minecraft:purple_shulker_box', amount: 1, maxAmount: 1 }];
-const hopperContainer = {
-  size: 5,
-  getItem: (i) => hopperSlots[i],
-  setItem: (i, v) => { hopperSlots[i] = v; },
-};
-dim.setBlock(2, 64, 2, 'minecraft:hopper', {}, hopperContainer);
-admin.messages.length = 0;
-
-for (const loop of system.intervals) loop.cb();
-__test.flush();
-
-check('a shulker funnelled through a hopper is removed', hopperSlots[0] === undefined,
-  `hopper still held ${hopperSlots[0]?.typeId ?? 'nothing'}`);
-check('the funnel exploit was reported', /hopper|shulker/i.test(admin.messages.join(' | ')),
-  admin.messages.join(' | '));
-
 // Freezing has to actually hold a player: input, world actions and the exits.
 say(admin, `!freeze ${player.name}`);
 check('freeze reports success', admin.messages.some((m) => /now frozen/i.test(m)),
@@ -501,28 +435,6 @@ check('a frozen player cannot teleport away',
 say(admin, `!freeze ${player.name}`);
 check('unfreezing restores the camera', player.lockedInput.get(1) === true);
 
-// Minecart chest dupe: two removals at one spot inside the window. This runs
-// off the before-event, because the after-event carries no location at all.
-const cartAt = { x: 10, y: 64, z: 10 };
-const removal = () => ({
-  removedEntity: { typeId: 'minecraft:chest_minecart', location: cartAt, dimension: __test.overworld },
-});
-
-admin.messages.length = 0;
-world.beforeEvents.entityRemove.emit(removal());
-__test.flush();
-world.beforeEvents.entityRemove.emit(removal());
-__test.flush();
-
-const alerts = admin.messages.join(' | ');
-check('minecart dupe pattern is detected', /minecart/i.test(alerts), alerts);
-// A heuristic is a pattern, not proof, so it must not count toward a ban.
-check('heuristic detections are not counted toward a ban', /not counted/i.test(alerts), alerts);
-
-say(admin, '!aclog');
-check('the detection reached the log',
-  admin.messages.some((m) => /minecart/i.test(m)), admin.messages.join(' | '));
-
 // Persistence must survive a shutdown/reload cycle.
 system.beforeEvents.shutdown.emit({});
 __test.flush();
@@ -543,10 +455,7 @@ console.log(`  ${__test.props.size} persisted storage keys`);
  * field. Cheap to get wrong, invisible in play, so it is checked here.
  */
 const adminSource = await readFile(path.join(ROOT, 'src', 'menus', 'admin.ts'), 'utf8');
-for (const [form, marker] of [
-  ['Features', "prompt(player, 'Features'"],
-  ['Anticheat', "prompt(admin, 'Anticheat settings'"],
-]) {
+for (const [form, marker] of [['Features', "prompt(player, 'Features'"]]) {
   const from = adminSource.indexOf(marker);
   const closer = adminSource.indexOf('ok(player,', from);
   const adminCloser = adminSource.indexOf('ok(admin,', from);

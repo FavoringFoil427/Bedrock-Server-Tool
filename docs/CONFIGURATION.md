@@ -86,21 +86,6 @@ Every setting lives in the world and is edited in-game through
 | `blockQuotaEnabled` | `boolean` | `false` | Daily block quotas (0 = unlimited) |
 | `blockQuotaMined` | `number` | `0` |  |
 | `blockQuotaPlaced` | `number` | `0` |  |
-| `anticheatEnabled` | `boolean` | `true` | Anticheat: illegal items, duplication signatures and protected blocks. |
-| `anticheatAlertStaff` | `boolean` | `true` |  |
-| `anticheatCheckOverstacks` | `boolean` | `true` |  |
-| `anticheatBanThreshold` | `number` | `0` | Violations before an automatic ban. 0 never auto-bans. |
-| `anticheatScanSeconds` | `number` | `10` | Seconds between background inventory sweeps. 0 disables them. |
-| `anticheatPistonDupe` | `boolean` | `true` | Duplication vectors, each independently switchable. |
-| `anticheatMinecartDupe` | `boolean` | `true` |  |
-| `anticheatPortalDupe` | `boolean` | `true` |  |
-| `anticheatNearbyScan` | `boolean` | `true` | Continuous sweep of the blocks around each player. One cube pass serves the piston, funnel and container checks together, so the radius is the single dial that governs all three. |
-| `anticheatScanRadius` | `number` | `6` |  |
-| `anticheatContainerScan` | `boolean` | `true` |  |
-| `anticheatBundleExploit` | `boolean` | `true` |  |
-| `anticheatIllegalItems` | `string[]` | `[...DEFAULT_ILLEGAL_ITEMS]` |  |
-| `anticheatBannedBlocks` | `string[]` | `[...DEFAULT_BANNED_BLOCKS]` |  |
-| `anticheatProtectedBlocks` | `string[]` | `[...DEFAULT_PROTECTED_BLOCKS]` |  |
 
 ## Moderation
 
