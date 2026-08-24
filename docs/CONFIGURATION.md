@@ -74,6 +74,8 @@ Every setting lives in the world and is edited in-game through
 | `cosmeticsEnabled` | `boolean` | `true` |  |
 | `duelsEnabled` | `boolean` | `true` |  |
 | `dailyRewardEnabled` | `boolean` | `true` |  |
+| `starterKitEnabled` | `boolean` | `true` | Hand a kit to every player on their first join. |
+| `starterKitId` | `string` | `'starter'` | Which kit that is, so it can be pointed at any kit staff create. |
 | `jobsEnabled` | `boolean` | `true` |  |
 | `skillsEnabled` | `boolean` | `true` |  |
 | `rewardsGiveVanillaXp` | `boolean` | `true` | Reward XP also grants spendable vanilla experience for enchanting. |

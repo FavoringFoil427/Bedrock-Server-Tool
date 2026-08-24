@@ -246,11 +246,20 @@ export function install(): void {
   });
 }
 
-/** Gives the starter kit the first time a player joins. */
+/**
+ * Gives the starter kit the first time a player joins.
+ *
+ * Which kit that is, and whether it happens at all, is up to the server: the
+ * setting names a kit id rather than hard-coding one, so staff can point it at
+ * anything they have built.
+ */
 export function grantStarterKit(player: Player): void {
-  const starter = kits.get('starter');
+  const config = cfg();
+  if (!config.starterKitEnabled) return;
+
+  const starter = kits.get(config.starterKitId);
   if (!starter) return;
   const profile = profileOf(player);
-  if (profile.kitsClaimed['starter'] !== undefined) return;
+  if (profile.kitsClaimed[starter.id] !== undefined) return;
   claimKit(player, starter);
 }

@@ -128,6 +128,10 @@ export interface Config {
   cosmeticsEnabled: boolean;
   duelsEnabled: boolean;
   dailyRewardEnabled: boolean;
+  /** Hand a kit to every player on their first join. */
+  starterKitEnabled: boolean;
+  /** Which kit that is, so it can be pointed at any kit staff create. */
+  starterKitId: string;
   jobsEnabled: boolean;
   skillsEnabled: boolean;
   /** Reward XP also grants spendable vanilla experience for enchanting. */
@@ -222,6 +226,8 @@ export function defaultConfig(): Config {
     cosmeticsEnabled: true,
     duelsEnabled: true,
     dailyRewardEnabled: true,
+    starterKitEnabled: true,
+    starterKitId: 'starter',
     jobsEnabled: true,
     skillsEnabled: true,
     rewardsGiveVanillaXp: true,

@@ -28,7 +28,7 @@ import { playerWarps, popularWarps, removePlayerWarp } from '../modules/playerwa
 import { scanInventory, violations } from '../modules/anticheat';
 import { claims } from '../modules/land';
 import { shopItems, unlist } from '../modules/shop';
-import { codes, kits } from '../modules/rewards';
+import { Kit, codes, grant, kits } from '../modules/rewards';
 import { ladder } from '../modules/ranks';
 import { availableLocales } from '../core/i18n';
 import { inventoryOf, prettyItemName } from '../core/items';
@@ -337,6 +337,172 @@ async function openModeration(player: Player): Promise<void> {
       },
     ],
     back: () => openAdminMenu(player),
+  });
+}
+
+/** Kit management: create, edit contents, set access, delete. */
+async function openKits(admin: Player): Promise<void> {
+  const config = cfg();
+  await paged(admin, {
+    title: `${C.title}Kits`,
+    body: [
+      `${C.dim}Starter kit: ${config.starterKitEnabled ? `${C.good}${config.starterKitId}` : `${C.bad}off`}`,
+      `${C.dim}Tap a kit to edit it.`,
+    ].join('\n'),
+    items: [...kits.values(), undefined],
+    render: (kit) =>
+      kit === undefined
+        ? { text: `${C.good}+ Create a kit` }
+        : {
+            text: `${C.accent}${kit.name}${kit.id === config.starterKitId && config.starterKitEnabled ? ` ${C.good}(starter)` : ''}\n${C.dim}${kit.reward.items.length} items, ${money(kit.reward.money)}${kit.permission ? `, needs ${kit.permission}` : ''}`,
+            ...(kit.icon ? { icon: kit.icon } : {}),
+          },
+    onPick: async (kit) => {
+      if (kit === undefined) return createKit(admin);
+      return openKit(admin, kit);
+    },
+    back: () => openContent(admin),
+  });
+}
+
+async function createKit(admin: Player): Promise<void> {
+  const values = await prompt(admin, 'Create a kit', [
+    { kind: 'text', label: 'Kit name', placeholder: 'Miner' },
+    { kind: 'text', label: 'Cooldown seconds (0 = one time only)', default: '86400' },
+  ]);
+  if (!values) return;
+
+  const name = String(values[0]).trim();
+  if (!name) return err(admin, 'Give the kit a name.');
+  const id = name.toLowerCase().replace(/\s+/g, '_');
+  if (kits.has(id)) return err(admin, 'A kit with that name already exists.');
+
+  kits.set(id, {
+    id,
+    name,
+    cooldown: Math.max(0, Number.parseInt(String(values[1]), 10) || 0),
+    reward: { money: 0, xp: 0, items: [] },
+  });
+  ok(admin, `Kit "${name}" created. Add items to it next.`);
+  await openKit(admin, kits.get(id)!);
+}
+
+async function openKit(admin: Player, kit: Kit): Promise<void> {
+  const config = cfg();
+  const isStarter = config.starterKitEnabled && config.starterKitId === kit.id;
+
+  await menu(admin, {
+    title: `${C.title}${kit.name}`,
+    body: [
+      `${C.dim}Cooldown: ${C.white}${kit.cooldown === 0 ? 'one time only' : formatDuration(kit.cooldown * 1000)}`,
+      `${C.dim}Money: ${C.good}${money(kit.reward.money)}  ${C.dim}XP: ${C.white}${kit.reward.xp}`,
+      `${C.dim}Items: ${C.white}${kit.reward.items.length}`,
+      `${C.dim}Access: ${C.white}${kit.permission ?? 'everyone'}`,
+      isStarter ? `${C.good}This is the starter kit given on first join.` : '',
+    ].filter(Boolean).join('\n'),
+    buttons: [
+      { text: `${C.accent}Contents (${kit.reward.items.length})`, onClick: () => openKitItems(admin, kit) },
+      {
+        text: `${C.good}+ Add the item you are holding`,
+        onClick: async () => {
+          const held = admin.getComponent('minecraft:equippable')?.getEquipment(EquipmentSlot.Mainhand);
+          if (!held) return err(admin, 'Hold the item you want to add.');
+          const answer = await askText(admin, `Add ${prettyItemName(held.typeId)}`, 'How many?', String(held.amount), String(held.amount));
+          const amount = Number.parseInt(answer ?? '', 10);
+          if (!Number.isFinite(amount) || amount < 1) return err(admin, 'Give a valid amount.');
+
+          const existing = kit.reward.items.find((entry) => entry.typeId === held.typeId);
+          if (existing) existing.amount = amount;
+          else kit.reward.items.push({ typeId: held.typeId, amount });
+          kits.markDirty();
+          ok(admin, `${prettyItemName(held.typeId)} x${amount} is now in ${kit.name}.`);
+          await openKit(admin, kit);
+        },
+      },
+      {
+        text: `${C.accent}Rewards and cooldown`,
+        onClick: async () => {
+          const values = await prompt(admin, `Edit ${kit.name}`, [
+            { kind: 'text', label: 'Display name', default: kit.name },
+            { kind: 'text', label: 'Money reward', default: String(kit.reward.money) },
+            { kind: 'text', label: 'XP reward', default: String(kit.reward.xp) },
+            { kind: 'text', label: 'Cooldown seconds (0 = one time only)', default: String(kit.cooldown) },
+            { kind: 'text', label: 'Permission needed (blank = everyone)', default: kit.permission ?? '' },
+          ]);
+          if (!values) return;
+          kit.name = String(values[0]).trim() || kit.name;
+          kit.reward.money = Math.max(0, Number.parseInt(String(values[1]), 10) || 0);
+          kit.reward.xp = Math.max(0, Number.parseInt(String(values[2]), 10) || 0);
+          kit.cooldown = Math.max(0, Number.parseInt(String(values[3]), 10) || 0);
+          const permission = String(values[4]).trim();
+          if (permission) kit.permission = permission;
+          else delete kit.permission;
+          kits.markDirty();
+          ok(admin, 'Kit updated.');
+        },
+      },
+      {
+        text: isStarter ? `${C.warn}Stop giving this on first join` : `${C.good}Make this the starter kit`,
+        onClick: async () => {
+          saveConfig((c) => {
+            if (isStarter) {
+              c.starterKitEnabled = false;
+            } else {
+              c.starterKitEnabled = true;
+              c.starterKitId = kit.id;
+            }
+          });
+          ok(admin, isStarter ? 'New players will no longer get a kit.' : `New players will now get ${kit.name}.`);
+          await openKit(admin, kit);
+        },
+      },
+      {
+        text: `${C.accent}Preview it on yourself`,
+        onClick: async () => {
+          grant(admin, kit.reward);
+          ok(admin, `Gave yourself the contents of ${kit.name}.`);
+        },
+      },
+      {
+        text: `${C.bad}Delete this kit`,
+        onClick: async () => {
+          const yes = await confirm(admin, 'Delete kit', `Delete "${kit.name}"? Players will no longer be able to claim it.`);
+          if (!yes) return;
+          kits.delete(kit.id);
+          if (isStarter) saveConfig((c) => { c.starterKitEnabled = false; });
+          ok(admin, 'Kit deleted.');
+          await openKits(admin);
+        },
+      },
+    ],
+    back: () => openKits(admin),
+  });
+}
+
+async function openKitItems(admin: Player, kit: Kit): Promise<void> {
+  await paged(admin, {
+    title: `${C.title}${kit.name} contents`,
+    body: kit.reward.items.length === 0
+      ? `${C.dim}Empty. Hold an item and use "Add the item you are holding".`
+      : `${C.dim}Tap an item to change the amount or remove it.`,
+    items: kit.reward.items,
+    render: (entry) => ({ text: `${C.white}${entry.amount}x ${prettyItemName(entry.typeId)}` }),
+    onPick: async (entry) => {
+      const values = await prompt(admin, prettyItemName(entry.typeId), [
+        { kind: 'text', label: 'Amount', default: String(entry.amount) },
+        { kind: 'toggle', label: 'Remove from this kit', default: false },
+      ]);
+      if (!values) return;
+      if (values[1]) {
+        kit.reward.items = kit.reward.items.filter((item) => item !== entry);
+        kits.markDirty();
+        return ok(admin, 'Item removed.');
+      }
+      entry.amount = Math.max(1, Number.parseInt(String(values[0]), 10) || 1);
+      kits.markDirty();
+      ok(admin, 'Amount updated.');
+    },
+    back: () => openKit(admin, kit),
   });
 }
 
@@ -952,26 +1118,7 @@ async function openContent(player: Player): Promise<void> {
       },
       {
         text: `${C.accent}Kits (${kits.size})`,
-        onClick: () =>
-          paged(player, {
-            title: `${C.title}Kits`,
-            items: kits.values(),
-            render: (kit) => ({
-              text: `${C.accent}${kit.name}\n${C.dim}${kit.reward.items.length} items, ${money(kit.reward.money)}`,
-            }),
-            onPick: async (kit) => {
-              const values = await prompt(player, kit.name, [
-                { kind: 'text', label: 'Money reward', default: String(kit.reward.money) },
-                { kind: 'text', label: 'Cooldown seconds (0 = once)', default: String(kit.cooldown) },
-              ]);
-              if (!values) return;
-              kit.reward.money = Number.parseInt(String(values[0]), 10) || 0;
-              kit.cooldown = Number.parseInt(String(values[1]), 10) || 0;
-              kits.markDirty();
-              ok(player, 'Kit updated.');
-            },
-            back: () => openContent(player),
-          }),
+        onClick: () => openKits(player),
       },
       {
         text: `${C.gold}Redeem codes (${codes.size})`,
@@ -1087,6 +1234,7 @@ async function openSettings(player: Player): Promise<void> {
             { kind: 'toggle', label: 'Jobs', default: config.jobsEnabled },
             { kind: 'toggle', label: 'Skills', default: config.skillsEnabled },
             { kind: 'toggle', label: 'Daily rewards', default: config.dailyRewardEnabled },
+            { kind: 'toggle', label: 'Starter kit on first join', default: config.starterKitEnabled },
             { kind: 'toggle', label: 'Require login', default: config.registrationRequired },
             { kind: 'toggle', label: 'Auto broadcasts', default: config.broadcastEnabled },
             { kind: 'toggle', label: 'Anti spam', default: config.antiSpamEnabled },
@@ -1105,11 +1253,12 @@ async function openSettings(player: Player): Promise<void> {
             c.jobsEnabled = Boolean(values[7]);
             c.skillsEnabled = Boolean(values[8]);
             c.dailyRewardEnabled = Boolean(values[9]);
-            c.registrationRequired = Boolean(values[10]);
-            c.broadcastEnabled = Boolean(values[11]);
-            c.antiSpamEnabled = Boolean(values[12]);
-            c.cosmeticsEnabled = Boolean(values[13]);
-            c.rewardsGiveVanillaXp = Boolean(values[14]);
+            c.starterKitEnabled = Boolean(values[10]);
+            c.registrationRequired = Boolean(values[11]);
+            c.broadcastEnabled = Boolean(values[12]);
+            c.antiSpamEnabled = Boolean(values[13]);
+            c.cosmeticsEnabled = Boolean(values[14]);
+            c.rewardsGiveVanillaXp = Boolean(values[15]);
           });
           ok(player, 'Features updated.');
         },

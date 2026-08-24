@@ -348,6 +348,17 @@ world.beforeEvents.playerBreakBlock.emit(breakEvent);
 __test.flush();
 check('breaking bedrock is blocked', breakEvent.cancel === true);
 
+// The starter kit is handed out on first join while it is switched on.
+const fresh = new Player('Fresh', 'p-fresh');
+__test.players.push(fresh);
+world.afterEvents.playerSpawn.emit({ player: fresh, initialSpawn: true });
+for (const t of system.timeouts.splice(0)) t.cb();
+__test.flush();
+const kitItems = fresh.slots.filter((slot) => slot && slot.typeId !== 'adm:member_book');
+check('a new player receives the starter kit contents',
+  kitItems.some((slot) => slot.typeId === 'minecraft:stone_sword'),
+  `held: ${fresh.slots.filter(Boolean).map((s) => s.typeId).join(', ') || 'nothing'}`);
+
 // Minecart chest dupe: two removals at one spot inside the window. This runs
 // off the before-event, because the after-event carries no location at all.
 const cartAt = { x: 10, y: 64, z: 10 };
@@ -383,6 +394,24 @@ check('no unexpected warnings during startup', warnings.length === 0, warnings.s
 console.log(`\n  ${registered.length} native commands registered`);
 console.log(`  ${system.intervals.length} background loops`);
 console.log(`  ${__test.props.size} persisted storage keys`);
+
+/*
+ * The Features form maps toggles to config fields by array index, so inserting
+ * one in the middle silently shifts every setting after it onto the wrong
+ * field. Cheap to get wrong, invisible in play, so it is checked here.
+ */
+const adminSource = await readFile(path.join(ROOT, 'src', 'menus', 'admin.ts'), 'utf8');
+for (const [form, marker] of [['Features', "prompt(player, 'Features'"]]) {
+  const from = adminSource.indexOf(marker);
+  const body = adminSource.slice(from, adminSource.indexOf('ok(player,', from));
+  const labels = [...body.matchAll(/label: '([^']+)'/g)].length;
+  const indices = [...body.matchAll(/values\[(\d+)\]/g)].map((m) => Number(m[1]));
+  const unique = [...new Set(indices)].sort((a, b) => a - b);
+  check(`${form} form: every control is assigned`, labels === unique.length,
+    `${labels} controls, ${unique.length} assigned`);
+  check(`${form} form: indices are contiguous from 0`,
+    unique.every((value, i) => value === i), unique.join(','));
+}
 
 /* ------------------------------------------------------------ pack assets */
 

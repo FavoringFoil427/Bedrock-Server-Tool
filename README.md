@@ -54,7 +54,7 @@ the starter kit.
 | **Land claims** | Rectangular claims with trust lists, container and PvP flags, chunk-indexed protection |
 | **Teleporting** | Three tiers of destination — private homes, staff-curated server warps, and public player warps anyone can publish — plus `!tpa`/`!tpahere` with warmup, random teleport, `!back` and spawn |
 | **Progression** | Rank ladder (automatic and purchasable), five passive skills with milestone perks, jobs that pay for ordinary play, quests, and reward XP that doubles as spendable enchanting levels |
-| **Rewards** | Starter kits, daily reward streaks, configurable kits, redeemable codes |
+| **Rewards** | Fully editable kits (contents, cooldown, price, access), an optional starter kit on first join pointed at any kit, daily reward streaks, redeemable codes |
 | **Social** | Clans with a shared bank and clan chat, wagered duels in a bounded ring |
 | **Display** | Custom chat format, custom nametags, scoreboard sidebar, per-player action bar, holograms with live leaderboards |
 | **Content** | Interactive NPCs (shopkeeper, kit master, daily rewards, job board, travel agent, rank shop, stylist), rotating broadcasts |

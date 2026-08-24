@@ -50,7 +50,7 @@ const { world, system, Player, __test } = await import(path.join(ROOT, 'test', '
  * backing map sidesteps the early-execution guard, which is the point: this is
  * the state the world already has on disk when the script starts.
  */
-const stored = JSON.stringify({ jobsEnabled: false });
+const stored = JSON.stringify({ jobsEnabled: false, starterKitEnabled: false });
 __test.props.set('adm:config#n', 1);
 __test.props.set('adm:config#0', stored);
 
@@ -98,6 +98,12 @@ check('breaking an ore pays nothing', player.messages.join(' ') === before,
 // commands still exist, so confirm they are at least refusing rather than
 // silently doing nothing.
 check('a job cannot be taken while disabled', OFF.test(say('!job hunter')));
+
+// With the starter kit switched off, a first join must hand out nothing.
+const carried = player.slots.filter(Boolean).map((slot) => slot.typeId);
+check('no starter kit is given when it is switched off',
+  carried.every((typeId) => typeId === 'adm:member_book'),
+  `held: ${carried.join(', ') || 'nothing'}`);
 
 await rm(outDir, { recursive: true, force: true });
 console.log(`\n${failures === 0 ? 'PASS' : `FAIL (${failures})`}`);
