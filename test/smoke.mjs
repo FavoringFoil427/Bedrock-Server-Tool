@@ -337,6 +337,36 @@ for (const file of await collectJson(path.join(rpDir, 'entity'))) {
   }
 }
 
+/*
+ * Menu icons. Pointing at a vanilla texture path is a bet that the path exists
+ * and keeps its name; several did not, and rendered as the magenta
+ * missing-texture square. Every icon must therefore be one this pack ships.
+ */
+const srcFiles = [];
+async function walkSrc(dir) {
+  for (const item of await readdir(dir, { withFileTypes: true })) {
+    const full = path.join(dir, item.name);
+    if (item.isDirectory()) await walkSrc(full);
+    else if (item.name.endsWith('.ts')) srcFiles.push(full);
+  }
+}
+await walkSrc(path.join(ROOT, 'src'));
+
+const referenced = new Set();
+for (const file of srcFiles) {
+  const text = await readFile(file, 'utf8');
+  for (const m of text.matchAll(/'(textures\/[a-z0-9_/]+)'/g)) referenced.add(m[1]);
+}
+
+const foreign = [...referenced].filter((t) => !t.startsWith('textures/ui/adm_'));
+check('no icons point at vanilla texture paths', foreign.length === 0,
+  foreign.join(', ') || '');
+
+for (const texture of referenced) {
+  check(`icon ${texture} ships with the pack`, existsSync(path.join(rpDir, `${texture}.png`)));
+}
+console.log(`\n  ${referenced.size} icons referenced, all shipped`);
+
 await rm(outDir, { recursive: true, force: true });
 
 console.log(`\n${failures === 0 ? 'PASS' : `FAIL (${failures})`}`);

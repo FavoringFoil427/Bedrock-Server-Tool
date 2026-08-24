@@ -53,7 +53,7 @@ export function ensureDefaultKits(): void {
   kits.set('starter', {
     id: 'starter',
     name: 'Starter Kit',
-    icon: 'textures/items/apple',
+    icon: 'textures/ui/adm_reward',
     cooldown: 0,
     reward: reward(0, 0, [
       ['minecraft:stone_sword', 1],
@@ -67,7 +67,7 @@ export function ensureDefaultKits(): void {
   kits.set('daily', {
     id: 'daily',
     name: 'Daily Kit',
-    icon: 'textures/items/gold_ingot',
+    icon: 'textures/ui/adm_economy',
     cooldown: 86_400,
     reward: reward(250, 0, [
       ['minecraft:cooked_beef', 8],
@@ -77,7 +77,7 @@ export function ensureDefaultKits(): void {
   kits.set('vip', {
     id: 'vip',
     name: 'VIP Kit',
-    icon: 'textures/items/diamond',
+    icon: 'textures/ui/adm_progress',
     cooldown: 43_200,
     permission: 'kit.admin',
     reward: reward(1000, 0, [

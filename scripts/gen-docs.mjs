@@ -44,6 +44,12 @@ await esbuild.build({
 const realConsole = globalThis.console;
 globalThis.console = { ...realConsole, log: () => {}, warn: () => {} };
 const { commands, usageOf } = await import(outfile);
+
+// usageOf reads config, which is world state, so early execution must end
+// first - exactly as it does on the first tick in a real world.
+const mock = await import(path.join(ROOT, 'test', 'mocks', 'server.mjs'));
+mock.__test.flush();
+
 globalThis.console = realConsole;
 
 const all = commands();

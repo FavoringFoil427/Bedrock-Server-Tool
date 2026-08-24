@@ -26,7 +26,7 @@ export const SKILLS: SkillDef[] = [
   {
     id: 'mining',
     name: 'Mining',
-    icon: 'textures/items/diamond_pickaxe',
+    icon: 'textures/ui/adm_mining',
     description: 'Earned by breaking blocks. Grants Haste at higher levels.',
     perk: { effect: 'haste', amplifierPerTier: 1 },
     perkLevel: 10,
@@ -34,7 +34,7 @@ export const SKILLS: SkillDef[] = [
   {
     id: 'combat',
     name: 'Combat',
-    icon: 'textures/items/iron_sword',
+    icon: 'textures/ui/adm_combat',
     description: 'Earned by defeating mobs and players. Grants Strength.',
     perk: { effect: 'strength', amplifierPerTier: 1 },
     perkLevel: 15,
@@ -42,7 +42,7 @@ export const SKILLS: SkillDef[] = [
   {
     id: 'building',
     name: 'Building',
-    icon: 'textures/blocks/brick',
+    icon: 'textures/ui/adm_building',
     description: 'Earned by placing blocks. Grants Resistance.',
     perk: { effect: 'resistance', amplifierPerTier: 1 },
     perkLevel: 20,
@@ -50,14 +50,14 @@ export const SKILLS: SkillDef[] = [
   {
     id: 'farming',
     name: 'Farming',
-    icon: 'textures/items/wheat',
+    icon: 'textures/ui/adm_farming',
     description: 'Earned by harvesting crops. Grants Saturation.',
     perkLevel: 12,
   },
   {
     id: 'exploration',
     name: 'Exploration',
-    icon: 'textures/items/map_filled',
+    icon: 'textures/ui/adm_explore',
     description: 'Earned by travelling. Grants Speed.',
     perk: { effect: 'speed', amplifierPerTier: 1 },
     perkLevel: 18,

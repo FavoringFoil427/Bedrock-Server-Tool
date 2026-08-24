@@ -9,7 +9,7 @@ Every command works two ways:
 
 Arguments in `<angle brackets>` are required; `[square brackets]` are optional.
 
-There are **102 commands** across 12 categories.
+There are **103 commands** across 12 categories.
 
 ## Account
 
@@ -51,6 +51,7 @@ There are **102 commands** across 12 categories.
 | Command | Permission | Description |
 | --- | --- | --- |
 | `!combatlog` | — | Show whether you are currently in combat. |
+| `!diag` | — | Report addon status, for troubleshooting. |
 | `!getbook` | — | Give yourself the Member Suite book. |
 | `!getsuite` | `menu.admin` | Give yourself the Admin Suite item. |
 | `!grave` | — | Recover the items from your last death. |

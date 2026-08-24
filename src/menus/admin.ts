@@ -1,4 +1,4 @@
-import { GameMode, Player, world } from '@minecraft/server';
+import { EquipmentSlot, GameMode, Player, world } from '@minecraft/server';
 import { menu, paged, prompt, askText, confirm } from '../core/ui';
 import { cfg, saveConfig } from '../core/config';
 import { Profile, profileOf, profiles } from '../core/profiles';
@@ -23,7 +23,7 @@ import { shopItems } from '../modules/shop';
 import { codes, kits } from '../modules/rewards';
 import { ladder } from '../modules/ranks';
 import { availableLocales } from '../core/i18n';
-import { inventoryOf } from '../core/items';
+import { inventoryOf, prettyItemName } from '../core/items';
 import { resetProgress } from '../modules/quests';
 import { openVaultFor } from '../modules/vault';
 
@@ -34,14 +34,14 @@ export async function openAdminMenu(player: Player): Promise<void> {
     title: `${C.title}Admin Suite`,
     body: `${C.dim}${cfg().serverName} - ${world.getAllPlayers().length} online`,
     buttons: [
-      { text: `${C.accent}Players`, icon: 'textures/ui/icon_multiplayer', onClick: () => openPlayers(player) },
-      { text: `${C.bad}Moderation`, icon: 'textures/ui/icon_lock', onClick: () => openModeration(player) },
-      { text: `${C.good}World`, icon: 'textures/ui/icon_recipe_nature', onClick: () => openWorld(player) },
-      { text: `${C.gold}Economy`, icon: 'textures/ui/icon_bundle', onClick: () => openEconomy(player) },
-      { text: `${C.accent}Roles & Permissions`, icon: 'textures/ui/icon_setting', onClick: () => openRoles(player) },
-      { text: `${C.warn}Content`, icon: 'textures/ui/icon_book_writable', onClick: () => openContent(player) },
-      { text: `${C.dim}Server Settings`, icon: 'textures/ui/icon_setting', onClick: () => openSettings(player) },
-      { text: `${C.dim}Data & Stats`, icon: 'textures/ui/icon_recipe_item', onClick: () => openData(player) },
+      { text: `${C.accent}Players`, icon: 'textures/ui/adm_players', onClick: () => openPlayers(player) },
+      { text: `${C.bad}Moderation`, icon: 'textures/ui/adm_moderation', onClick: () => openModeration(player) },
+      { text: `${C.good}World`, icon: 'textures/ui/adm_world', onClick: () => openWorld(player) },
+      { text: `${C.gold}Economy`, icon: 'textures/ui/adm_economy', onClick: () => openEconomy(player) },
+      { text: `${C.accent}Roles & Permissions`, icon: 'textures/ui/adm_roles', onClick: () => openRoles(player) },
+      { text: `${C.warn}Content`, icon: 'textures/ui/adm_content', onClick: () => openContent(player) },
+      { text: `${C.dim}Server Settings`, icon: 'textures/ui/adm_settings', onClick: () => openSettings(player) },
+      { text: `${C.dim}Data & Stats`, icon: 'textures/ui/adm_data', onClick: () => openData(player) },
     ],
   });
 }
@@ -442,10 +442,17 @@ async function openEconomy(player: Player): Promise<void> {
         },
       },
       {
+        text: `${C.good}+ Add the item you are holding`,
+        onClick: () => addHeldItemToShop(player),
+      },
+      {
         text: `${C.accent}Shop items (${shopItems.size})`,
         onClick: () =>
           paged(player, {
             title: `${C.title}Shop items`,
+            body: shopItems.size === 0
+              ? `${C.dim}The shop is empty. Hold an item and use "Add the item you are holding".`
+              : `${C.dim}Tap an item to change its prices or remove it.`,
             items: shopItems.values(),
             render: (entry) => ({
               text: `${C.white}${entry.name}\n${C.dim}${entry.category} - buy ${entry.buyPrice} / sell ${entry.sellPrice}`,
@@ -494,6 +501,45 @@ async function openEconomy(player: Player): Promise<void> {
     ],
     back: () => openAdminMenu(player),
   });
+}
+
+/**
+ * Adds whatever the admin is holding to the shop, so stocking it never means
+ * looking up an item id.
+ */
+async function addHeldItemToShop(player: Player): Promise<void> {
+  const held = player.getComponent('minecraft:equippable')?.getEquipment(EquipmentSlot.Mainhand);
+  if (!held) return err(player, 'Hold the item you want to sell, then try again.');
+
+  const existing = shopItems.get(held.typeId.replace('minecraft:', ''));
+  const known = [...new Set(shopItems.values().map((entry) => entry.category))];
+  const categories = known.length > 0 ? known : ['Blocks', 'Resources', 'Food', 'Tools', 'Misc'];
+
+  const values = await prompt(player, `Add ${prettyItemName(held.typeId)}`, [
+    { kind: 'dropdown', label: 'Category', options: [...categories, 'New category...'] },
+    { kind: 'text', label: 'New category name (if chosen above)', placeholder: 'Blocks' },
+    { kind: 'text', label: 'Buy price (0 = players cannot buy)', default: String(existing?.buyPrice ?? 0) },
+    { kind: 'text', label: 'Sell price (0 = players cannot sell)', default: String(existing?.sellPrice ?? 0) },
+    { kind: 'text', label: 'Bundle size', default: String(existing?.amount ?? 1) },
+  ]);
+  if (!values) return;
+
+  const chosen = Number(values[0]);
+  const category = chosen === categories.length
+    ? String(values[1]).trim() || 'Misc'
+    : categories[chosen];
+
+  const id = held.typeId.replace('minecraft:', '');
+  shopItems.set(id, {
+    id,
+    typeId: held.typeId,
+    name: prettyItemName(held.typeId),
+    category,
+    buyPrice: Math.max(0, Number.parseInt(String(values[2]), 10) || 0),
+    sellPrice: Math.max(0, Number.parseInt(String(values[3]), 10) || 0),
+    amount: Math.max(1, Number.parseInt(String(values[4]), 10) || 1),
+  });
+  ok(player, `${prettyItemName(held.typeId)} is now in the shop under ${category}.`);
 }
 
 /* -------------------------------------------------------------------- roles */

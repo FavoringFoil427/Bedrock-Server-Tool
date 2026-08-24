@@ -34,17 +34,17 @@ export async function openMemberMenu(player: Player): Promise<void> {
       `${C.dim}Balance: ${C.good}${money(balanceOf(profile))}`,
     ].join('\n'),
     buttons: [
-      { text: `${C.accent}Profile`, icon: 'textures/ui/icon_steve', onClick: () => openProfile(player) },
-      { text: `${C.good}Shop`, icon: 'textures/ui/icon_bundle', onClick: () => openShopCategories(player) },
-      { text: `${C.gold}Auction House`, icon: 'textures/ui/icon_recipe_item', onClick: () => openAuction(player) },
-      { text: `${C.accent}Homes`, icon: 'textures/ui/icon_recipe_nature', onClick: () => openHomes(player) },
-      { text: `${C.accent}Warps`, icon: 'textures/ui/icon_map', onClick: () => openWarps(player) },
-      { text: `${C.warn}Land`, icon: 'textures/ui/icon_blackfriday', onClick: () => openLand(player) },
-      { text: `${C.good}Rewards`, icon: 'textures/ui/icon_gift', onClick: () => openRewards(player) },
-      { text: `${C.accent}Progression`, icon: 'textures/ui/icon_bookshelf', onClick: () => openProgression(player) },
-      { text: `${C.gold}Clan`, icon: 'textures/ui/icon_multiplayer', onClick: () => openClan(player) },
-      { text: `${C.accent}Vault`, icon: 'textures/ui/icon_book_writable', onClick: () => openVaultCommand(player) },
-      { text: `${C.dim}Settings`, icon: 'textures/ui/icon_setting', onClick: () => openSettings(player) },
+      { text: `${C.accent}Profile`, icon: 'textures/ui/adm_profile', onClick: () => openProfile(player) },
+      { text: `${C.good}Shop`, icon: 'textures/ui/adm_shop', onClick: () => openShopCategories(player) },
+      { text: `${C.gold}Auction House`, icon: 'textures/ui/adm_auction', onClick: () => openAuction(player) },
+      { text: `${C.accent}Homes`, icon: 'textures/ui/adm_home', onClick: () => openHomes(player) },
+      { text: `${C.accent}Warps`, icon: 'textures/ui/adm_warp', onClick: () => openWarps(player) },
+      { text: `${C.warn}Land`, icon: 'textures/ui/adm_land', onClick: () => openLand(player) },
+      { text: `${C.good}Rewards`, icon: 'textures/ui/adm_reward', onClick: () => openRewards(player) },
+      { text: `${C.accent}Progression`, icon: 'textures/ui/adm_progress', onClick: () => openProgression(player) },
+      { text: `${C.gold}Clan`, icon: 'textures/ui/adm_clan', onClick: () => openClan(player) },
+      { text: `${C.accent}Vault`, icon: 'textures/ui/adm_vault', onClick: () => openVaultCommand(player) },
+      { text: `${C.dim}Settings`, icon: 'textures/ui/adm_settings', onClick: () => openSettings(player) },
     ],
   });
 }
@@ -115,9 +115,12 @@ async function openPay(player: Player): Promise<void> {
 
 export async function openShopCategories(player: Player): Promise<void> {
   const list = categories();
+  const empty = list.length === 0;
   await menu(player, {
     title: `${C.title}Shop`,
-    body: `${C.dim}Balance: ${C.good}${money(balanceOf(profileOf(player)))}`,
+    body: empty
+      ? `${C.dim}The shop has nothing in it yet.\n${C.dim}An admin stocks it from Admin Suite -> Economy.`
+      : `${C.dim}Balance: ${C.good}${money(balanceOf(profileOf(player)))}`,
     buttons: list.map((category) => ({
       text: `${C.accent}${category}`,
       onClick: () => openShopCategory(player, category),

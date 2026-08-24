@@ -32,7 +32,7 @@ export function ensureDefaultJobs(): void {
       id: 'miner',
       name: 'Miner',
       description: 'Earn money for every ore you break.',
-      icon: 'textures/items/iron_pickaxe',
+      icon: 'textures/ui/adm_mining',
       trigger: 'break',
       payouts: {
         'minecraft:coal_ore': 3,
@@ -53,7 +53,7 @@ export function ensureDefaultJobs(): void {
       id: 'lumberjack',
       name: 'Lumberjack',
       description: 'Earn money for every log you fell.',
-      icon: 'textures/blocks/log_oak',
+      icon: 'textures/ui/adm_land',
       trigger: 'break',
       payouts: {
         'minecraft:oak_log': 2,
@@ -70,7 +70,7 @@ export function ensureDefaultJobs(): void {
       id: 'hunter',
       name: 'Hunter',
       description: 'Earn money for defeating hostile mobs.',
-      icon: 'textures/items/iron_sword',
+      icon: 'textures/ui/adm_combat',
       trigger: 'kill',
       payouts: {
         'minecraft:zombie': 5,
@@ -87,7 +87,7 @@ export function ensureDefaultJobs(): void {
       id: 'farmer',
       name: 'Farmer',
       description: 'Earn money for harvesting crops.',
-      icon: 'textures/items/wheat',
+      icon: 'textures/ui/adm_farming',
       trigger: 'break',
       payouts: {
         'minecraft:wheat': 3,
@@ -103,7 +103,7 @@ export function ensureDefaultJobs(): void {
       id: 'builder',
       name: 'Builder',
       description: 'Earn a small amount for placing blocks.',
-      icon: 'textures/blocks/brick',
+      icon: 'textures/ui/adm_building',
       trigger: 'place',
       payouts: { '*': 1 },
     },

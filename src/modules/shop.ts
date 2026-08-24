@@ -1,4 +1,5 @@
 import { EquipmentSlot, Player, world } from '@minecraft/server';
+import { can } from '../core/permissions';
 import { register } from '../core/commands';
 import { Table } from '../core/storage';
 import { profileByName, profileOf, profiles, onlinePlayer } from '../core/profiles';
@@ -9,9 +10,10 @@ import { addMoney, balanceOf, charge, money } from './economy';
 /**
  * Server shop and player auction house.
  *
- * Shop prices are static by design: dynamic pricing is fun for a week and then
- * becomes impossible for players to reason about. Admins set a buy price, a
- * sell price, or both.
+ * The shop starts empty and holds only what the server puts in it, so it can
+ * match whatever economy the world is actually running rather than a generic
+ * catalogue nobody asked for. Prices are static by design: dynamic pricing is
+ * fun for a week and then becomes impossible for players to reason about.
  */
 
 export interface ShopEntry {
@@ -38,38 +40,6 @@ export interface AuctionLot {
 
 export const shopItems = new Table<ShopEntry>('adm:shop');
 export const auctions = new Table<AuctionLot>('adm:auctions');
-
-function seed(typeId: string, category: string, buy: number, sell: number, amount = 1): ShopEntry {
-  return { id: typeId.replace('minecraft:', ''), typeId, name: prettyItemName(typeId), category, buyPrice: buy, sellPrice: sell, amount };
-}
-
-export function ensureDefaultShop(): void {
-  if (shopItems.size > 0) return;
-  const catalog: ShopEntry[] = [
-    seed('minecraft:oak_log', 'Blocks', 12, 4, 8),
-    seed('minecraft:stone', 'Blocks', 6, 2, 16),
-    seed('minecraft:glass', 'Blocks', 10, 3, 8),
-    seed('minecraft:iron_ingot', 'Resources', 45, 18),
-    seed('minecraft:gold_ingot', 'Resources', 70, 28),
-    seed('minecraft:diamond', 'Resources', 400, 160),
-    seed('minecraft:emerald', 'Resources', 320, 130),
-    seed('minecraft:netherite_ingot', 'Resources', 4000, 1600),
-    seed('minecraft:coal', 'Resources', 15, 5, 4),
-    seed('minecraft:bread', 'Food', 8, 3, 4),
-    seed('minecraft:cooked_beef', 'Food', 14, 5, 4),
-    seed('minecraft:golden_apple', 'Food', 250, 90),
-    seed('minecraft:iron_pickaxe', 'Tools', 120, 0),
-    seed('minecraft:diamond_pickaxe', 'Tools', 900, 0),
-    seed('minecraft:diamond_sword', 'Tools', 850, 0),
-    seed('minecraft:bow', 'Tools', 150, 0),
-    seed('minecraft:arrow', 'Tools', 3, 1, 16),
-    seed('minecraft:wheat_seeds', 'Farming', 5, 1, 8),
-    seed('minecraft:bone_meal', 'Farming', 8, 2, 8),
-    seed('minecraft:torch', 'Misc', 4, 1, 16),
-    seed('minecraft:ender_pearl', 'Misc', 180, 60),
-  ];
-  for (const entry of catalog) shopItems.set(entry.id, entry);
-}
 
 export function categories(): string[] {
   return [...new Set(shopItems.values().map((entry) => entry.category))].sort();
@@ -102,11 +72,6 @@ export function sell(player: Player, entry: ShopEntry, bundles = 1): string | un
   return undefined;
 }
 
-/** Deferred setup. Runs on the first tick, when world state is reachable. */
-export function init(): void {
-  ensureDefaultShop();
-}
-
 export function install(): void {
 
   register({
@@ -116,6 +81,13 @@ export function install(): void {
     permission: 'shop.use',
     args: [{ name: 'category', type: 'string', optional: true }],
     handler: ({ player, args }) => {
+      if (shopItems.size === 0) {
+        tell(player, `${C.dim}The shop is empty.`);
+        if (can(player, 'shop.admin')) {
+          player.sendMessage(`${C.dim}Add the item you are holding with ${C.accent}!shopadd hand <category> <buy> <sell>`);
+        }
+        return;
+      }
       if (!args[0]) {
         tell(player, `${C.title}Shop categories`);
         for (const category of categories()) {
@@ -146,7 +118,8 @@ export function install(): void {
       const held = equipment?.getEquipment(EquipmentSlot.Mainhand);
       if (!held) return err(player, 'You are not holding anything.');
       const entry = shopItems.values().find((item) => item.typeId === held.typeId);
-      if (!entry || entry.sellPrice <= 0) return err(player, 'That item cannot be sold.');
+      if (!entry) return err(player, 'The shop does not buy that. An admin can add it with !shopadd.');
+      if (entry.sellPrice <= 0) return err(player, 'That item cannot be sold.');
 
       const bundles = Math.floor(held.amount / entry.amount);
       if (bundles < 1) return err(player, `You need at least ${entry.amount} of them.`);
@@ -169,7 +142,12 @@ export function install(): void {
       { name: 'amount', type: 'int', optional: true },
     ],
     handler: ({ player, args }) => {
-      const typeId = (args[0] ?? '').includes(':') ? args[0] : `minecraft:${args[0]}`;
+      // "hand" is a shortcut for whatever the admin is currently holding.
+      const raw = args[0] ?? '';
+      const held = player.getComponent('minecraft:equippable')?.getEquipment(EquipmentSlot.Mainhand);
+      const source = raw.toLowerCase() === 'hand' ? held?.typeId : raw;
+      if (!source) return err(player, 'Hold an item, or give its id.');
+      const typeId = source.includes(':') ? source : `minecraft:${source}`;
       if (!makeStack(typeId)) return err(player, `"${typeId}" is not a valid item id.`);
       const id = typeId.replace('minecraft:', '');
       shopItems.set(id, {

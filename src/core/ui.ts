@@ -52,7 +52,7 @@ export async function menu(player: Player, options: MenuOptions): Promise<void> 
   if (options.body) form.body(options.body);
 
   const buttons = [...options.buttons];
-  if (options.back) buttons.push({ text: `${C.dim}Back`, icon: 'textures/ui/arrow_left', onClick: options.back });
+  if (options.back) buttons.push({ text: `${C.dim}Back`, icon: 'textures/ui/adm_back', onClick: options.back });
 
   if (buttons.length === 0) {
     form.body((options.body ? options.body + '\n\n' : '') + `${C.dim}Nothing to show.`);
