@@ -2,7 +2,14 @@
   "resource_pack_name": "adm",
   "texture_name": "atlas.items",
   "texture_data": {
-    "adm_admin_suite": { "textures": "textures/items/adm_admin_suite" },
-    "adm_member_book": { "textures": "textures/items/adm_member_book" }
+    "adm_admin_suite": {
+      "textures": "textures/items/adm_admin_suite"
+    },
+    "adm_member_book": {
+      "textures": "textures/items/adm_member_book"
+    },
+    "adm_offhand_torch": {
+      "textures": "textures/items/adm_offhand_torch"
+    }
   }
 }

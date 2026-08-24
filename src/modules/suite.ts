@@ -1,17 +1,15 @@
 import { EquipmentSlot, Player, system, world } from '@minecraft/server';
 import { commands, register } from '../core/commands';
+export { ADMIN_ITEM, MEMBER_ITEM } from '../core/items';
 import { chatAvailable } from '../core/chatbridge';
 import { can } from '../core/permissions';
-import { giveItem, makeStack } from '../core/items';
+import { ADMIN_ITEM, MEMBER_ITEM, giveItem, inventoryOf, isSuiteItem, makeStack } from '../core/items';
 import { C, err, ok, tell } from '../core/util';
 import { openAdminMenu } from '../menus/admin';
 import { openMemberMenu } from '../menus/member';
 import { profileOf, profiles } from '../core/profiles';
 
 /** The two menu items and the commands that hand them out. */
-
-export const ADMIN_ITEM = 'adm:admin_suite';
-export const MEMBER_ITEM = 'adm:member_book';
 
 function giveSuiteItem(player: Player, typeId: string): boolean {
   const stack = makeStack(typeId, 1);
@@ -27,6 +25,31 @@ export function grantMemberBook(player: Player): void {
   profile.gotMemberBook = true;
   profiles.markDirty();
   giveSuiteItem(player, MEMBER_ITEM);
+}
+
+/**
+ * Which menu items a player was carrying when they died, so exactly those come
+ * back. Kept in memory only: dying and rejoining later is the same as dying,
+ * and the first-join grant covers anyone the map has forgotten.
+ */
+const carriedAtDeath = new Map<string, string[]>();
+
+/** Restores the menu items a player had, skipping any they still hold. */
+export function restoreSuiteItems(player: Player): void {
+  const wanted = carriedAtDeath.get(player.id);
+  if (!wanted || wanted.length === 0) return;
+  carriedAtDeath.delete(player.id);
+
+  const container = inventoryOf(player);
+  for (const typeId of wanted) {
+    let alreadyHeld = false;
+    if (container) {
+      for (let slot = 0; slot < container.size && !alreadyHeld; slot++) {
+        if (container.getItem(slot)?.typeId === typeId) alreadyHeld = true;
+      }
+    }
+    if (!alreadyHeld) giveSuiteItem(player, typeId);
+  }
 }
 
 export function install(): void {
@@ -125,6 +148,33 @@ export function install(): void {
     }
     return false;
   };
+
+  /*
+   * Menu items survive death. They are not loot, and losing them just means a
+   * player cannot reach their own menus until an admin notices.
+   */
+  world.afterEvents.entityDie.subscribe((event) => {
+    const player = event.deadEntity;
+    if (!(player instanceof Player)) return;
+
+    const container = inventoryOf(player);
+    if (!container) return;
+    const held = new Set<string>();
+    for (let slot = 0; slot < container.size; slot++) {
+      const typeId = container.getItem(slot)?.typeId;
+      if (isSuiteItem(typeId) && typeId) held.add(typeId);
+    }
+    if (held.size > 0) carriedAtDeath.set(player.id, [...held]);
+  });
+
+  world.afterEvents.playerSpawn.subscribe((event) => {
+    // A respawn, not a first join; the initial grant covers that case.
+    if (event.initialSpawn) return;
+    const player = event.player;
+    system.runTimeout(() => {
+      if (player.isValid) restoreSuiteItems(player);
+    }, 20);
+  });
 
   // Using the item while aiming at air.
   world.afterEvents.itemUse.subscribe((event) => {

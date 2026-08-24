@@ -104,8 +104,19 @@ export function grant(player: Player, value: Reward): void {
   tell(player, `${C.good}Received: ${C.reset}${parts.join(', ') || 'nothing'}`);
 }
 
-/** Attempts a kit claim, returning an error string when it is refused. */
+/** True when the kits system is switched on for this world. */
+export function kitsEnabled(): boolean {
+  return cfg().kitsEnabled;
+}
+
+/**
+ * Attempts a kit claim, returning an error string when it is refused.
+ *
+ * The enabled check lives here rather than only in the menus, so no surface -
+ * command, menu, NPC or a future one - can hand out a kit while kits are off.
+ */
 export function claimKit(player: Player, kit: Kit): string | undefined {
+  if (!kitsEnabled()) return 'Kits are turned off on this server.';
   if (kit.permission && !can(player, kit.permission)) return 'You do not have access to that kit.';
   const profile = profileOf(player);
   const last = profile.kitsClaimed[kit.id];
@@ -140,6 +151,7 @@ export function install(): void {
     category: 'Rewards',
     args: [{ name: 'name', type: 'string', optional: true }],
     handler: ({ player, args }) => {
+      if (!kitsEnabled()) return err(player, 'Kits are turned off on this server.');
       if (!args[0]) {
         const available = kits.values().filter((kit) => !kit.permission || can(player, kit.permission));
         if (available.length === 0) return tell(player, `${C.dim}No kits available.`);
@@ -255,7 +267,7 @@ export function install(): void {
  */
 export function grantStarterKit(player: Player): void {
   const config = cfg();
-  if (!config.starterKitEnabled) return;
+  if (!config.kitsEnabled || !config.starterKitEnabled) return;
 
   const starter = kits.get(config.starterKitId);
   if (!starter) return;

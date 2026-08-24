@@ -1,4 +1,4 @@
-import { EquipmentSlot, Player } from '@minecraft/server';
+import { EquipmentSlot, Player, world } from '@minecraft/server';
 import { menu, paged, prompt, askText, confirm } from '../core/ui';
 import { cfg } from '../core/config';
 import { profileOf, profiles } from '../core/profiles';
@@ -6,7 +6,15 @@ import { topRole } from '../core/permissions';
 import { C, err, formatDuration, formatVec, ok, tell } from '../core/util';
 import { balanceOf, money, richest, transfer } from '../modules/economy';
 import { ShopEntry, auctions, buy, categories, itemsIn, listForSale, listingsOf, sell, unitPrice, unlist } from '../modules/shop';
-import { warps, goTo, randomTeleport } from '../modules/teleport';
+import {
+  acceptTeleportRequest,
+  denyTeleportRequest,
+  goTo,
+  hasPendingRequest,
+  randomTeleport,
+  sendTeleportRequest,
+  warps,
+} from '../modules/teleport';
 import {
   createPlayerWarp,
   playerWarpsEnabled,
@@ -20,7 +28,7 @@ import { SKILLS, levelOf, levelProgress } from '../modules/skills';
 import { describeRequirement, ladder, rankOf } from '../modules/ranks';
 import { jobOf, jobs, jobsEnabled } from '../modules/jobs';
 import { claim as claimQuest, isClaimed, isComplete, progressFor, quests } from '../modules/quests';
-import { claimKit, dailyReward, grant, kits } from '../modules/rewards';
+import { claimKit, dailyReward, grant, kits, kitsEnabled } from '../modules/rewards';
 import { claimAt, claims } from '../modules/land';
 import { clanOf, clans } from '../modules/clans';
 import { prettyItemName } from '../core/items';
@@ -51,6 +59,7 @@ export async function openMemberMenu(player: Player): Promise<void> {
       ...(playerWarpsEnabled()
         ? [{ text: `${C.good}Player Warps`, icon: 'textures/ui/adm_pwarp', onClick: () => openPlayerWarps(player) }]
         : []),
+      { text: `${C.accent}Teleport`, icon: 'textures/ui/adm_warp', onClick: () => openTeleport(player) },
       { text: `${C.warn}Land`, icon: 'textures/ui/adm_land', onClick: () => openLand(player) },
       { text: `${C.good}Rewards`, icon: 'textures/ui/adm_reward', onClick: () => openRewards(player) },
       { text: `${C.accent}Progression`, icon: 'textures/ui/adm_progress', onClick: () => openProgression(player) },
@@ -453,6 +462,78 @@ async function openMyWarps(player: Player): Promise<void> {
   });
 }
 
+/** Player-to-player teleporting, without needing to know the commands. */
+async function openTeleport(player: Player): Promise<void> {
+  const others = world.getAllPlayers().filter((other) => other.id !== player.id);
+  const prefix = cfg().commandPrefix;
+
+  await menu(player, {
+    title: `${C.title}Teleport`,
+    body: others.length === 0
+      ? `${C.dim}Nobody else is online.`
+      : `${C.dim}${others.length} other player${others.length === 1 ? '' : 's'} online.`,
+    buttons: [
+      {
+        text: `${C.accent}Ask to teleport to someone`,
+        onClick: () => openTeleportPicker(player, others, false),
+      },
+      {
+        text: `${C.accent}Ask someone to come to you`,
+        onClick: () => openTeleportPicker(player, others, true),
+      },
+      ...(hasPendingRequest(player.id)
+        ? [
+            {
+              text: `${C.good}Accept the pending request`,
+              onClick: async () => {
+                const problem = await acceptTeleportRequest(player);
+                if (problem) err(player, problem);
+                else ok(player, 'Teleport request accepted.');
+              },
+            },
+            {
+              text: `${C.bad}Decline the pending request`,
+              onClick: async () => {
+                const problem = denyTeleportRequest(player);
+                if (problem) err(player, problem);
+                else ok(player, 'Teleport request declined.');
+              },
+            },
+          ]
+        : [{ text: `${C.dim}No pending requests`, onClick: async () => {} }]),
+      {
+        text: `${C.warn}Random teleport`,
+        onClick: async () => {
+          tell(player, `${C.dim}Finding somewhere to drop you...`);
+          if (await randomTeleport(player)) ok(player, 'Teleported to the wild.');
+          else err(player, 'Could not find a safe spot.');
+        },
+      },
+      {
+        text: `${C.dim}Back to your last location`,
+        onClick: async () => tell(player, `${C.dim}Use ${prefix}back to return where you were.`),
+      },
+      { text: `${C.accent}Spawn`, onClick: async () => tell(player, `${C.dim}Use ${prefix}spawn to return to spawn.`) },
+    ],
+    back: () => openMemberMenu(player),
+  });
+}
+
+async function openTeleportPicker(player: Player, others: Player[], here: boolean): Promise<void> {
+  if (others.length === 0) return err(player, 'Nobody else is online.');
+  await paged(player, {
+    title: here ? `${C.title}Ask someone here` : `${C.title}Teleport to someone`,
+    items: others,
+    render: (other) => ({ text: `${C.accent}${other.name}` }),
+    onPick: async (other: Player) => {
+      const problem = sendTeleportRequest(player, other, here);
+      if (problem) return err(player, problem);
+      ok(player, here ? `Asked ${other.name} to come to you.` : `Teleport request sent to ${other.name}.`);
+    },
+    back: () => openTeleport(player),
+  });
+}
+
 /* --------------------------------------------------------------------- land */
 
 async function openLand(player: Player): Promise<void> {
@@ -529,7 +610,7 @@ async function openRewards(player: Player): Promise<void> {
           grant(player, dailyReward(profile.dailyStreak));
         },
       },
-      { text: `${C.accent}Kits`, onClick: () => openKits(player) },
+      ...(kitsEnabled() ? [{ text: `${C.accent}Kits`, onClick: () => openKits(player) }] : []),
       { text: `${C.gold}Cosmetics`, onClick: () => openCosmetics(player) },
       {
         text: `${C.gold}Redeem a code`,

@@ -72,8 +72,11 @@ Every setting lives in the world and is edited in-game through
 | `broadcastEnabled` | `boolean` | `true` |  |
 | `gravestonesEnabled` | `boolean` | `true` |  |
 | `cosmeticsEnabled` | `boolean` | `true` |  |
+| `dynamicLightEnabled` | `boolean` | `true` | Handheld torch that lights the way by placing light blocks. |
+| `dynamicLightLevel` | `number` | `14` |  |
 | `duelsEnabled` | `boolean` | `true` |  |
 | `dailyRewardEnabled` | `boolean` | `true` |  |
+| `kitsEnabled` | `boolean` | `true` | Master switch for kits. Off removes them from every surface. |
 | `starterKitEnabled` | `boolean` | `true` | Hand a kit to every player on their first join. |
 | `starterKitId` | `string` | `'starter'` | Which kit that is, so it can be pointed at any kit staff create. |
 | `jobsEnabled` | `boolean` | `true` |  |

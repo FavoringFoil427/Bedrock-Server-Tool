@@ -1242,12 +1242,14 @@ async function openSettings(player: Player): Promise<void> {
             { kind: 'toggle', label: 'Jobs', default: config.jobsEnabled },
             { kind: 'toggle', label: 'Skills', default: config.skillsEnabled },
             { kind: 'toggle', label: 'Daily rewards', default: config.dailyRewardEnabled },
+            { kind: 'toggle', label: 'Kits', default: config.kitsEnabled },
             { kind: 'toggle', label: 'Starter kit on first join', default: config.starterKitEnabled },
             { kind: 'toggle', label: 'Require login', default: config.registrationRequired },
             { kind: 'toggle', label: 'Auto broadcasts', default: config.broadcastEnabled },
             { kind: 'toggle', label: 'Anti spam', default: config.antiSpamEnabled },
             { kind: 'toggle', label: 'Cosmetics', default: config.cosmeticsEnabled },
             { kind: 'toggle', label: 'Reward XP gives enchanting levels', default: config.rewardsGiveVanillaXp },
+            { kind: 'toggle', label: 'Handheld torch dynamic lighting', default: config.dynamicLightEnabled },
           ]);
           if (!values) return;
           saveConfig((c) => {
@@ -1261,12 +1263,14 @@ async function openSettings(player: Player): Promise<void> {
             c.jobsEnabled = Boolean(values[7]);
             c.skillsEnabled = Boolean(values[8]);
             c.dailyRewardEnabled = Boolean(values[9]);
-            c.starterKitEnabled = Boolean(values[10]);
-            c.registrationRequired = Boolean(values[11]);
-            c.broadcastEnabled = Boolean(values[12]);
-            c.antiSpamEnabled = Boolean(values[13]);
-            c.cosmeticsEnabled = Boolean(values[14]);
-            c.rewardsGiveVanillaXp = Boolean(values[15]);
+            c.kitsEnabled = Boolean(values[10]);
+            c.starterKitEnabled = Boolean(values[11]);
+            c.registrationRequired = Boolean(values[12]);
+            c.broadcastEnabled = Boolean(values[13]);
+            c.antiSpamEnabled = Boolean(values[14]);
+            c.cosmeticsEnabled = Boolean(values[15]);
+            c.rewardsGiveVanillaXp = Boolean(values[16]);
+            c.dynamicLightEnabled = Boolean(values[17]);
           });
           ok(player, 'Features updated.');
         },

@@ -9,7 +9,7 @@ Every command works two ways:
 
 Arguments in `<angle brackets>` are required; `[square brackets]` are optional.
 
-There are **114 commands** across 12 categories.
+There are **116 commands** across 12 categories.
 
 ## Account
 
@@ -67,6 +67,7 @@ There are **114 commands** across 12 categories.
 | `!playtime [player]` | — | Show how long you have played. |
 | `!quota` | — | Show how much of your daily block allowance is left. |
 | `!suite` <br>_aliases: `adminmenu`, `panel`_ | `menu.admin` | Open the admin panel. |
+| `!torch` | — | Get a handheld torch that lights your way from the offhand. |
 | `!vault` <br>_aliases: `storage`_ | — | Open your personal vault. |
 
 ## Land
@@ -182,5 +183,6 @@ There are **114 commands** across 12 categories.
 | `!clean [scope]` | `world.entities` | Remove dropped items (add "mobs" to clear hostiles too). |
 | `!difficulty <value>` | `world.difficulty` | Set the world difficulty. |
 | `!gamerule <rule> <value>` | `world.gamerule` | Change a game rule. |
+| `!lightcleanup` | `world.entities` | Admin: clear every dynamic light this addon has placed. |
 | `!time <value>` | `world.time` | Set the world time (day, night, or a number). |
 | `!weather <value>` | `world.weather` | Set the weather (clear, rain, thunder). |

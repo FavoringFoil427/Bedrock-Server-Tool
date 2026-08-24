@@ -2,7 +2,7 @@ import { Player, world } from '@minecraft/server';
 import { register } from '../core/commands';
 import { cfg } from '../core/config';
 import { Table } from '../core/storage';
-import { giveItem, inventoryOf, makeStack } from '../core/items';
+import { giveItem, inventoryOf, isSuiteItem, makeStack } from '../core/items';
 import { C, err, formatVec, ok, tell } from '../core/util';
 
 /**
@@ -33,13 +33,19 @@ const graves = new Table<Grave[]>('adm:graves');
 
 const MAX_GRAVES = 3;
 
+/**
+ * Snapshots the inventory for the gravestone.
+ *
+ * The menu items are skipped: they are restored directly on respawn, so putting
+ * them in the grave as well would hand the player a second copy of each.
+ */
 function capture(player: Player): GraveItem[] {
   const container = inventoryOf(player);
   if (!container) return [];
   const items: GraveItem[] = [];
   for (let slot = 0; slot < container.size; slot++) {
     const item = container.getItem(slot);
-    if (item) items.push({ typeId: item.typeId, amount: item.amount });
+    if (item && !isSuiteItem(item.typeId)) items.push({ typeId: item.typeId, amount: item.amount });
   }
   return items;
 }

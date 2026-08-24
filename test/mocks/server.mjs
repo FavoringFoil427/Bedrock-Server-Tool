@@ -12,7 +12,7 @@ function signal() {
 
 const EVENT_NAMES_AFTER = [
   'entityDie', 'playerBreakBlock', 'playerPlaceBlock', 'playerSpawn', 'playerLeave',
-  'itemUse', 'entityHurt', 'playerJoin', 'entityHitEntity',
+  'itemUse', 'entityHurt', 'playerJoin', 'entityHitEntity', 'playerDimensionChange',
 ];
 const EVENT_NAMES_BEFORE = [
   'playerBreakBlock', 'playerInteractWithBlock', 'playerInteractWithEntity',
@@ -40,6 +40,7 @@ export class Player {
     // A real slot array, so inventory maths is actually exercised.
     this.slots = new Array(36).fill(undefined);
     this.mainhand = undefined;
+    this.offhand = undefined;
     this.experience = 0;
     this.gameMode = 'survival';
     const slots = this.slots;
@@ -83,7 +84,10 @@ export class Player {
     if (id === 'minecraft:health') return { currentValue: 20, effectiveMax: 20, resetToMaxValue() {} };
     if (id === 'minecraft:inventory') return { container: this.container };
     if (id === 'minecraft:equippable') {
-      return { getEquipment: (slot) => (slot === 'Mainhand' ? this.mainhand : undefined) };
+      return {
+        getEquipment: (slot) =>
+          slot === 'Mainhand' ? this.mainhand : slot === 'Offhand' ? this.offhand : undefined,
+      };
     }
     return undefined;
   }
@@ -96,7 +100,18 @@ class Dimension {
   getEntities() { return []; }
   getPlayers() { return world.getAllPlayers(); }
   getTopmostBlock() { return { location: { x: 0, y: 64, z: 0 } }; }
-  getBlock(loc) { return this.blocks.get(`${loc.x},${loc.y},${loc.z}`); }
+  getBlock(loc) {
+    const key = `${loc.x},${loc.y},${loc.z}`;
+    if (this.blocks.has(key)) return this.blocks.get(key);
+    // Empty space is air, not "no block": undefined means an unloaded chunk.
+    return {
+      typeId: 'minecraft:air',
+      location: { ...loc },
+      dimension: this,
+      permutation: { getAllStates: () => ({}) },
+      getComponent: () => undefined,
+    };
+  }
   setBlockType(loc, type) {
     this.placed.push({ loc, type });
     if (type === 'minecraft:air') this.blocks.delete(`${loc.x},${loc.y},${loc.z}`);

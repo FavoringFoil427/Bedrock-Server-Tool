@@ -2,11 +2,13 @@
 ## so the key must contain the colon from the item's identifier.
 item.adm:admin_suite=Admin Suite
 item.adm:member_book=Member Suite
+item.adm:offhand_torch=Handheld Torch
 
 ## Some versions resolve the name through a dotted key instead; harmless to
 ## keep both so the name renders either way.
 item.adm.admin_suite=Admin Suite
 item.adm.member_book=Member Suite
+item.adm.offhand_torch=Handheld Torch
 
 pack.name=Admin Suite - Server Tools
 pack.description=Resources for the Admin Suite server management toolkit.

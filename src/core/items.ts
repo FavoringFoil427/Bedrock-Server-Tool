@@ -2,6 +2,14 @@ import { ItemStack, Player } from '@minecraft/server';
 
 /** Inventory helpers shared by the shop, kits, quests and reward systems. */
 
+/** The two menu items. Held here so any module can recognise them. */
+export const ADMIN_ITEM = 'adm:admin_suite';
+export const MEMBER_ITEM = 'adm:member_book';
+
+export function isSuiteItem(typeId: string | undefined): boolean {
+  return typeId === ADMIN_ITEM || typeId === MEMBER_ITEM;
+}
+
 export function inventoryOf(player: Player) {
   return player.getComponent('minecraft:inventory')?.container;
 }

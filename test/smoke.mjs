@@ -359,6 +359,38 @@ check('a new player receives the starter kit contents',
   kitItems.some((slot) => slot.typeId === 'minecraft:stone_sword'),
   `held: ${fresh.slots.filter(Boolean).map((s) => s.typeId).join(', ') || 'nothing'}`);
 
+// The menu items are not loot: dying must not cost you your own menus.
+fresh.slots[5] = { typeId: 'adm:member_book', amount: 1, maxAmount: 1 };
+world.afterEvents.entityDie.emit({ deadEntity: fresh, damageSource: { damagingEntity: undefined } });
+__test.flush();
+fresh.slots.fill(undefined);
+world.afterEvents.playerSpawn.emit({ player: fresh, initialSpawn: false });
+for (const t of system.timeouts.splice(0)) t.cb();
+__test.flush();
+check('the member book comes back after death',
+  fresh.slots.some((slot) => slot?.typeId === 'adm:member_book'),
+  `held: ${fresh.slots.filter(Boolean).map((s) => s.typeId).join(', ') || 'nothing'}`);
+
+// Dynamic light must follow the player and, above all, clean up after itself.
+const lightDim = __test.overworld;
+player.location = { x: 100, y: 64, z: 100 };
+player.offhand = { typeId: 'adm:offhand_torch', amount: 1, maxAmount: 1 };
+lightDim.placed.length = 0;
+for (const loop of system.intervals) loop.cb();
+__test.flush();
+const litAt = lightDim.placed.find((entry) => entry.type.includes('light_block'));
+check('holding the torch places a light', Boolean(litAt),
+  JSON.stringify(lightDim.placed.slice(0, 3)));
+
+// Putting it away must take the light with it.
+player.offhand = undefined;
+lightDim.placed.length = 0;
+for (const loop of system.intervals) loop.cb();
+__test.flush();
+check('putting the torch away clears the light',
+  lightDim.placed.some((entry) => entry.type === 'minecraft:air'),
+  JSON.stringify(lightDim.placed.slice(0, 3)));
+
 // The continuous sweep must pop a piston set up next to a shulker box.
 const dim = __test.overworld;
 dim.setBlock(3, 64, 3, 'minecraft:piston', { facing_direction: 5 });
@@ -372,7 +404,9 @@ __test.flush();
 const popped = dim.placed.some((entry) => entry.type === 'minecraft:air');
 check('the sweep neutralises a piston beside a shulker', popped,
   `setBlockType calls: ${JSON.stringify(dim.placed)}`);
-check('the piston is gone from the world', dim.getBlock({ x: 3, y: 64, z: 3 }) === undefined);
+check('the piston is gone from the world',
+  dim.getBlock({ x: 3, y: 64, z: 3 })?.typeId === 'minecraft:air',
+  `block is now ${dim.getBlock({ x: 3, y: 64, z: 3 })?.typeId}`);
 check('staff were told about it', /piston/i.test(admin.messages.join(' | ')),
   admin.messages.join(' | '));
 

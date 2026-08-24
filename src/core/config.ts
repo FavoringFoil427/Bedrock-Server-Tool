@@ -126,8 +126,13 @@ export interface Config {
   broadcastEnabled: boolean;
   gravestonesEnabled: boolean;
   cosmeticsEnabled: boolean;
+  /** Handheld torch that lights the way by placing light blocks. */
+  dynamicLightEnabled: boolean;
+  dynamicLightLevel: number;
   duelsEnabled: boolean;
   dailyRewardEnabled: boolean;
+  /** Master switch for kits. Off removes them from every surface. */
+  kitsEnabled: boolean;
   /** Hand a kit to every player on their first join. */
   starterKitEnabled: boolean;
   /** Which kit that is, so it can be pointed at any kit staff create. */
@@ -233,8 +238,11 @@ export function defaultConfig(): Config {
     broadcastEnabled: true,
     gravestonesEnabled: true,
     cosmeticsEnabled: true,
+    dynamicLightEnabled: true,
+    dynamicLightLevel: 14,
     duelsEnabled: true,
     dailyRewardEnabled: true,
+    kitsEnabled: true,
     starterKitEnabled: true,
     starterKitId: 'starter',
     jobsEnabled: true,

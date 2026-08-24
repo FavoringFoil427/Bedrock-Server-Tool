@@ -28,6 +28,7 @@ import * as display from './modules/display';
 import * as broadcast from './modules/broadcast';
 import * as gravestone from './modules/gravestone';
 import * as cosmetics from './modules/cosmetics';
+import * as dynamiclight from './modules/dynamiclight';
 import * as quota from './modules/quota';
 import * as registration from './modules/registration';
 import * as npc from './modules/npc';
@@ -43,8 +44,9 @@ import * as suite from './modules/suite';
  *
  * Module order matters in a few places: `land` installs PvP protection that
  * `duels` deliberately overrides for active fights, `combat` must load after
- * `duels` so duellists are exempt from combat tagging, and `suite` registers
- * the menu items that the NPC module opens.
+ * `duels` so duellists are exempt from combat tagging, and `suite` must load
+ * before `gravestone` because the gravestone clears the inventory on death and
+ * the suite needs to see which menu items were being carried first.
  */
 /**
  * A module's `install()` may only register commands and subscribe to events:
@@ -66,6 +68,8 @@ const MODULES: Module[] = [
   playerwarps,
   moderation,
   anticheat,
+  suite,
+  gravestone,
   worldtools,
   ranks,
   skills,
@@ -79,12 +83,11 @@ const MODULES: Module[] = [
   stats,
   display,
   broadcast,
-  gravestone,
   cosmetics,
+  dynamiclight,
   quota,
   registration,
   vault,
-  suite,
   npc,
 ];
 

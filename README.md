@@ -54,6 +54,7 @@ the starter kit.
 | **Land claims** | Rectangular claims with trust lists, container and PvP flags, chunk-indexed protection |
 | **Teleporting** | Three tiers of destination — private homes, staff-curated server warps, and public player warps anyone can publish — plus `!tpa`/`!tpahere` with warmup, random teleport, `!back` and spawn |
 | **Progression** | Rank ladder (automatic and purchasable), five passive skills with milestone perks, jobs that pay for ordinary play, quests, and reward XP that doubles as spendable enchanting levels |
+| **Quality of life** | Handheld offhand torch with dynamic lighting, menu items that survive death, teleport requests from the member menu |
 | **Rewards** | Fully editable kits (contents, cooldown, price, access), an optional starter kit on first join pointed at any kit, daily reward streaks, redeemable codes |
 | **Social** | Clans with a shared bank and clan chat, wagered duels in a bounded ring |
 | **Display** | Custom chat format, custom nametags, scoreboard sidebar, per-player action bar, holograms with live leaderboards |
@@ -191,6 +192,11 @@ A few decisions worth knowing:
 - **Module order matters** in `src/main.ts`: `land` installs PvP protection that
   `duels` deliberately overrides, and `combat` loads after `duels` so duellists
   are exempt from combat tagging.
+- **Dynamic light is real blocks, so cleanup is the feature.** Bedrock exposes
+  no way to set a light level, so the handheld torch places a `light_block` and
+  moves it. A stray one is invisible and effectively permanent, so every path
+  that ends the effect clears it, only air is ever replaced, and only a light
+  block is ever cleared.
 - **One cube sweep, three checks.** The continuous sweep around each player
   serves the piston, funnel and container checks in a single pass, so each block
   is fetched once rather than three times over separate intervals. That is what

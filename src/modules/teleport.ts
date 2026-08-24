@@ -261,6 +261,59 @@ interface TeleportRequest {
 
 const requests = new Map<string, TeleportRequest>();
 
+/** Sends a teleport request. `here` asks the target to come to the sender. */
+export function sendTeleportRequest(from: Player, to: Player, here: boolean): string | undefined {
+  if (to.id === from.id) return 'You cannot teleport to yourself.';
+  requests.set(to.id, {
+    fromId: from.id,
+    toId: to.id,
+    here,
+    expires: Date.now() + cfg().tpaTimeoutSeconds * 1000,
+  });
+  tell(
+    to,
+    here
+      ? `${from.name} wants you to teleport to them. Use ${cfg().commandPrefix}tpaccept or ${cfg().commandPrefix}tpdeny.`
+      : t('tpa.received', { player: from.name, prefix: cfg().commandPrefix }),
+  );
+  return undefined;
+}
+
+/** True when this player has a request waiting on them. */
+export function hasPendingRequest(playerId: string): boolean {
+  return pendingFor(playerId) !== undefined;
+}
+
+/** Accepts the pending request, performing the teleport. */
+export async function acceptTeleportRequest(player: Player): Promise<string | undefined> {
+  const request = pendingFor(player.id);
+  if (!request) return t('tpa.none');
+  requests.delete(player.id);
+
+  const sender = world.getAllPlayers().find((p) => p.id === request.fromId);
+  if (!sender) return 'That player is no longer online.';
+
+  const mover = request.here ? player : sender;
+  const anchor = request.here ? sender : player;
+  if (!(await warmup(mover))) return undefined;
+
+  if (goTo(mover, locationOf(anchor))) {
+    tell(sender, t('tpa.accepted'));
+    return undefined;
+  }
+  return 'The teleport failed.';
+}
+
+/** Declines the pending request. */
+export function denyTeleportRequest(player: Player): string | undefined {
+  const request = pendingFor(player.id);
+  if (!request) return t('tpa.none');
+  requests.delete(player.id);
+  const sender = world.getAllPlayers().find((p) => p.id === request.fromId);
+  if (sender) tell(sender, `${C.warn}${player.name} denied your teleport request.`);
+  return undefined;
+}
+
 function pendingFor(targetId: string): TeleportRequest | undefined {
   const request = requests.get(targetId);
   if (!request) return undefined;
@@ -279,16 +332,9 @@ function installTpa(): void {
     const online = onlinePlayer(target);
     if (!online) return err(player, `${target.name} is not online.`);
 
-    requests.set(target.id, {
-      fromId: player.id,
-      toId: target.id,
-      here,
-      expires: Date.now() + cfg().tpaTimeoutSeconds * 1000,
-    });
+    const problem = sendTeleportRequest(player, online, here);
+    if (problem) return err(player, problem);
     ok(player, t('tpa.sent', { player: target.name }));
-    tell(online, here
-      ? `${player.name} wants you to teleport to them. Use ${cfg().commandPrefix}tpaccept or ${cfg().commandPrefix}tpdeny.`
-      : t('tpa.received', { player: player.name, prefix: cfg().commandPrefix }));
   };
 
   register({
