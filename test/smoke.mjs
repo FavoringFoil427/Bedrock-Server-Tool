@@ -243,6 +243,17 @@ say(player, `!unlist ${listingId}`);
 check('unlisting returns the stock', player.messages.some((m) => /stock returned/i.test(m)),
   player.messages.join(' | '));
 
+// Jobs are on by default, so the same commands must work here. Without this
+// the toggle test could pass simply by everything being permanently off.
+say(player, '!jobs');
+check('jobs are available when enabled',
+  player.messages.some((m) => /miner/i.test(m)) && !player.messages.some((m) => /turned off/i.test(m)),
+  player.messages.join(' | '));
+
+say(player, '!job miner');
+check('a job can be taken when enabled', player.messages.some((m) => /now a Miner/i.test(m)),
+  player.messages.join(' | '));
+
 // Persistence must survive a shutdown/reload cycle.
 system.beforeEvents.shutdown.emit({});
 __test.flush();

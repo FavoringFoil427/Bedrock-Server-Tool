@@ -11,7 +11,7 @@ import { formatDuration } from '../core/util';
 import { ladder, rankOf } from './ranks';
 import { charge, money } from './economy';
 import { warps, goTo } from './teleport';
-import { jobs } from './jobs';
+import { jobOf, jobs, jobsEnabled } from './jobs';
 import {
   cosmetics,
   equip as equipCosmetic,
@@ -106,9 +106,16 @@ async function interact(player: Player, npc: Npc): Promise<void> {
 
     case 'jobs': {
       const profile = profileOf(player);
+      if (!jobsEnabled()) {
+        return menu(player, {
+          title: `${C.title}${npc.name}`,
+          body: `${C.dim}The job board is closed - jobs are turned off on this server.`,
+          buttons: [],
+        });
+      }
       return menu(player, {
         title: `${C.title}${npc.name}`,
-        body: profile.jobId ? `${C.dim}Current job: ${C.white}${jobs.get(profile.jobId)?.name}` : `${C.dim}You have no job.`,
+        body: jobOf(profile) ? `${C.dim}Current job: ${C.white}${jobOf(profile)?.name}` : `${C.dim}You have no job.`,
         buttons: jobs.values().map((job) => ({
           text: `${C.accent}${job.name}\n${C.dim}${job.description}`,
           ...(job.icon ? { icon: job.icon } : {}),

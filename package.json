@@ -1,6 +1,6 @@
 {
   "name": "bedrock-server-tool",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Admin Suite - an all-in-one server management addon for Minecraft Bedrock",
   "type": "module",
   "scripts": {
@@ -9,7 +9,7 @@
     "package": "node build.mjs --package",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run test && npm run build",
-    "test": "node test/smoke.mjs",
+    "test": "node test/smoke.mjs && node test/toggles.mjs",
     "docs": "node scripts/gen-docs.mjs",
     "icons": "node scripts/gen-icons.mjs"
   },

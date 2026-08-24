@@ -10,6 +10,11 @@ import { levelOf } from './skills';
 /**
  * Jobs pay players for doing what they already do. A job maps block or entity
  * ids to a payout, so joining "Miner" quietly turns ore into income.
+ *
+ * The whole system is behind one switch. When it is off, jobs disappear from
+ * every surface rather than merely paying nothing: commands refuse, the menu
+ * entry is hidden and the Job Board NPC says so. Stored job choices are kept,
+ * not cleared, so turning it back on restores everyone's job.
  */
 
 export interface Job {
@@ -111,6 +116,17 @@ export function ensureDefaultJobs(): void {
   for (const job of seed) jobs.set(job.id, job);
 }
 
+/** True when the jobs system is switched on for this world. */
+export function jobsEnabled(): boolean {
+  return cfg().jobsEnabled;
+}
+
+/** The player's current job, or undefined when they have none or jobs are off. */
+export function jobOf(profile: { jobId?: string }): Job | undefined {
+  if (!jobsEnabled() || !profile.jobId) return undefined;
+  return jobs.get(profile.jobId);
+}
+
 /** A job bonus multiplier derived from the matching skill level. */
 function multiplier(player: Player, job: Job): number {
   const skillId = job.trigger === 'kill' ? 'combat' : job.trigger === 'place' ? 'building' : 'mining';
@@ -148,6 +164,7 @@ export function install(): void {
     category: 'Progression',
     permission: 'jobs.use',
     handler: ({ player }) => {
+      if (!jobsEnabled()) return err(player, 'Jobs are turned off on this server.');
       const profile = profileOf(player);
       tell(player, `${C.title}Jobs`);
       for (const job of jobs.values()) {
@@ -165,6 +182,7 @@ export function install(): void {
     permission: 'jobs.use',
     args: [{ name: 'id', type: 'string' }],
     handler: ({ player, args }) => {
+      if (!jobsEnabled()) return err(player, 'Jobs are turned off on this server.');
       const profile = profileOf(player);
       const id = (args[0] ?? '').toLowerCase();
 
@@ -189,6 +207,7 @@ export function install(): void {
     category: 'Progression',
     permission: 'jobs.use',
     handler: ({ player }) => {
+      if (!jobsEnabled()) return err(player, 'Jobs are turned off on this server.');
       const profile = profileOf(player);
       if (!profile.jobId) return err(player, 'You do not have a job.');
       const job = jobs.get(profile.jobId);

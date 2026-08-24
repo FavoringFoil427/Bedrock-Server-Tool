@@ -9,7 +9,7 @@ import { ShopEntry, auctions, buy, categories, itemsIn, listForSale, listingsOf,
 import { warps, goTo, randomTeleport } from '../modules/teleport';
 import { SKILLS, levelOf, levelProgress } from '../modules/skills';
 import { describeRequirement, ladder, rankOf } from '../modules/ranks';
-import { jobs } from '../modules/jobs';
+import { jobOf, jobs, jobsEnabled } from '../modules/jobs';
 import { claim as claimQuest, isClaimed, isComplete, progressFor, quests } from '../modules/quests';
 import { claimKit, dailyReward, grant, kits } from '../modules/rewards';
 import { claimAt, claims } from '../modules/land';
@@ -61,7 +61,7 @@ async function openProfile(player: Player): Promise<void> {
     `${C.dim}Balance: ${C.good}${money(balanceOf(profile))}`,
     `${C.dim}Playtime: ${C.white}${formatDuration(profile.playtimeMs)}`,
     `${C.dim}Clan: ${C.white}${clan ? `${clan.name} [${clan.tag}]` : 'none'}`,
-    `${C.dim}Job: ${C.white}${profile.jobId ? jobs.get(profile.jobId)?.name ?? 'none' : 'none'}`,
+    ...(jobsEnabled() ? [`${C.dim}Job: ${C.white}${jobOf(profile)?.name ?? 'none'}`] : []),
     '',
     `${C.gold}Stats`,
     `${C.dim}Kills: ${C.white}${profile.stats.kills}  ${C.dim}Deaths: ${C.white}${profile.stats.deaths}`,
@@ -518,7 +518,7 @@ async function openProgression(player: Player): Promise<void> {
     buttons: [
       { text: `${C.accent}Skills`, onClick: () => openSkills(player) },
       { text: `${C.gold}Ranks`, onClick: () => openRanks(player) },
-      { text: `${C.good}Jobs`, onClick: () => openJobs(player) },
+      ...(jobsEnabled() ? [{ text: `${C.good}Jobs`, onClick: () => openJobs(player) }] : []),
       { text: `${C.warn}Quests`, onClick: () => openQuests(player) },
     ],
     back: () => openMemberMenu(player),
@@ -572,7 +572,7 @@ async function openJobs(player: Player): Promise<void> {
   const profile = profileOf(player);
   await paged(player, {
     title: `${C.title}Jobs`,
-    body: profile.jobId ? `${C.dim}Current: ${C.white}${jobs.get(profile.jobId)?.name}` : `${C.dim}You have no job.`,
+    body: jobOf(profile) ? `${C.dim}Current: ${C.white}${jobOf(profile)?.name}` : `${C.dim}You have no job.`,
     items: jobs.values(),
     render: (job) => ({
       text: `${C.accent}${job.name}\n${C.dim}${job.description}`,

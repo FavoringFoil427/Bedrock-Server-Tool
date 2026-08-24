@@ -190,6 +190,11 @@ A few decisions worth knowing:
 - **Module order matters** in `src/main.ts`: `land` installs PvP protection that
   `duels` deliberately overrides, and `combat` loads after `duels` so duellists
   are exempt from combat tagging.
+- **A feature toggle removes the feature, not just its effect.** Jobs are the
+  worked example: with the switch off the commands refuse, the menu entry is
+  hidden and the Job Board NPC says it is closed, rather than players taking a
+  job that silently pays nothing. Stored job choices are kept, so turning it
+  back on restores everyone's job.
 - **Player stalls are stock-backed on purpose.** Players price what they sell
   but never what the shop buys back. A player-set buy-back price would let
   anyone list dirt at a fortune and sell it to the server forever; backing a
