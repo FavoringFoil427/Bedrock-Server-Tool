@@ -93,7 +93,7 @@ export function warmup(player: Player): Promise<boolean> {
 }
 
 /** Applies a cooldown gate, messaging the player when they must wait. */
-function gate(player: Player, profile: Profile, key: string, seconds: number): boolean {
+export function gate(player: Player, profile: Profile, key: string, seconds: number): boolean {
   if (can(player, 'bypass.cooldown')) return true;
   const left = cooldownLeft(profile, key);
   if (left > 0) {

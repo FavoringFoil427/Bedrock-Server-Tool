@@ -18,6 +18,7 @@ import { activeBan, bans, banProfile, kickPlayer, reports, setFrozen, setVanishe
 import { cleanEntities, setTime, setWeather } from '../modules/worldtools';
 import { holograms } from '../modules/display';
 import { warps } from '../modules/teleport';
+import { playerWarps, popularWarps, removePlayerWarp } from '../modules/playerwarps';
 import { claims } from '../modules/land';
 import { shopItems, unlist } from '../modules/shop';
 import { codes, kits } from '../modules/rewards';
@@ -774,6 +775,27 @@ async function openContent(player: Player): Promise<void> {
           }),
       },
       {
+        text: `${C.warn}Player warps (${playerWarps.size})`,
+        onClick: () =>
+          paged(player, {
+            title: `${C.title}Player warps`,
+            body: `${C.dim}Published by players. Removing one tells its owner.`,
+            items: popularWarps(),
+            render: (warp) => ({
+              text: `${C.accent}${warp.name}\n${C.dim}by ${warp.ownerName} - ${warp.visits} visits`,
+            }),
+            onPick: async (warp) => {
+              const yes = await confirm(player, 'Remove warp',
+                `Remove ${warp.ownerName}'s warp "${warp.name}"?`);
+              if (!yes) return;
+              const problem = removePlayerWarp(player, warp);
+              if (problem) err(player, problem);
+              else ok(player, 'Warp removed.');
+            },
+            back: () => openContent(player),
+          }),
+      },
+      {
         text: `${C.accent}Kits (${kits.size})`,
         onClick: () =>
           paged(player, {
@@ -946,6 +968,9 @@ async function openSettings(player: Player): Promise<void> {
             { kind: 'slider', label: 'RTP cooldown (seconds)', min: 0, max: 600, step: 10, default: config.rtpCooldownSeconds },
             { kind: 'slider', label: 'Max claim radius', min: 8, max: 128, step: 8, default: config.claimMaxRadius },
             { kind: 'text', label: 'Starting claim blocks', default: String(config.claimBlocksDefault) },
+            { kind: 'toggle', label: 'Allow player warps', default: config.playerWarpsEnabled },
+            { kind: 'slider', label: 'Player warps each', min: 1, max: 20, step: 1, default: config.playerWarpLimit },
+            { kind: 'text', label: 'Cost to publish a player warp', default: String(config.playerWarpCost) },
           ]);
           if (!values) return;
           saveConfig((c) => {
@@ -954,6 +979,9 @@ async function openSettings(player: Player): Promise<void> {
             c.rtpCooldownSeconds = Number(values[2]);
             c.claimMaxRadius = Number(values[3]);
             c.claimBlocksDefault = Number.parseInt(String(values[4]), 10) || 2048;
+            c.playerWarpsEnabled = Boolean(values[5]);
+            c.playerWarpLimit = Number(values[6]);
+            c.playerWarpCost = Math.max(0, Number.parseInt(String(values[7]), 10) || 0);
           });
           ok(player, 'Saved.');
         },

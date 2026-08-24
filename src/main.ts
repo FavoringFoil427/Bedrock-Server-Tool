@@ -9,6 +9,7 @@ import { chatAvailable } from './core/chatbridge';
 import * as economy from './modules/economy';
 import * as shop from './modules/shop';
 import * as teleport from './modules/teleport';
+import * as playerwarps from './modules/playerwarps';
 import * as land from './modules/land';
 import * as moderation from './modules/moderation';
 import * as worldtools from './modules/worldtools';
@@ -61,6 +62,7 @@ const MODULES: Module[] = [
   shop,
   teleport,
   land,
+  playerwarps,
   moderation,
   worldtools,
   ranks,

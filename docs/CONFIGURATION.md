@@ -34,6 +34,9 @@ Every setting lives in the world and is edited in-game through
 | `rtpMaxRadius` | `number` | `5000` |  |
 | `rtpCooldownSeconds` | `number` | `120` |  |
 | `warpCooldownSeconds` | `number` | `5` |  |
+| `playerWarpsEnabled` | `boolean` | `true` | Player warps: public destinations any player may publish. |
+| `playerWarpLimit` | `number` | `2` |  |
+| `playerWarpCost` | `number` | `0` | Charged when publishing a player warp. 0 is free. |
 
 ## Land claims
 

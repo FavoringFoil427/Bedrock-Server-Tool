@@ -34,6 +34,12 @@ export interface Config {
   rtpCooldownSeconds: number;
   warpCooldownSeconds: number;
 
+  /** Player warps: public destinations any player may publish. */
+  playerWarpsEnabled: boolean;
+  playerWarpLimit: number;
+  /** Charged when publishing a player warp. 0 is free. */
+  playerWarpCost: number;
+
   /** Land claims */
   claimBlocksDefault: number;
   claimMaxRadius: number;
@@ -113,6 +119,10 @@ export function defaultConfig(): Config {
     rtpMaxRadius: 5000,
     rtpCooldownSeconds: 120,
     warpCooldownSeconds: 5,
+
+    playerWarpsEnabled: true,
+    playerWarpLimit: 2,
+    playerWarpCost: 0,
 
     claimBlocksDefault: 2048,
     claimMaxRadius: 64,

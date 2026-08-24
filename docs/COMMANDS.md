@@ -9,7 +9,7 @@ Every command works two ways:
 
 Arguments in `<angle brackets>` are required; `[square brackets]` are optional.
 
-There are **106 commands** across 12 categories.
+There are **110 commands** across 12 categories.
 
 ## Account
 
@@ -153,11 +153,15 @@ There are **106 commands** across 12 categories.
 | --- | --- | --- |
 | `!back` | `tp.back` | Return to your previous location. |
 | `!delhome <name>` | `tp.home` | Delete one of your homes. |
+| `!delpwarp <name>` | `tp.pwarp.create` | Remove one of your player warps. |
 | `!delwarp <name>` | `tp.warp.admin` | Admin: delete a warp. |
 | `!home [name]` | `tp.home` | Teleport to one of your homes. |
 | `!homes` | `tp.home` | List your saved homes. |
+| `!mypwarps` | `tp.pwarp.create` | List the player warps you have published. |
+| `!pwarp [name]` <br>_aliases: `playerwarp`_ | `tp.pwarp` | Travel to a player warp, or list them all. |
 | `!rtp` <br>_aliases: `wild`_ | `tp.rtp` | Teleport to a random location in the wild. |
 | `!sethome [name]` | `tp.home` | Save your current position as a home. |
+| `!setpwarp <name> [description]` | `tp.pwarp.create` | Publish a player warp where you are standing. |
 | `!setwarp <name> [cost]` | `tp.warp.admin` | Admin: create a warp at your position. |
 | `!spawn` | `tp.warp` | Teleport to the world spawn. |
 | `!tpa <player>` | `tp.tpa` | Ask to teleport to a player. |

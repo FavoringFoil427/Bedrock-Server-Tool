@@ -7,6 +7,15 @@ import { C, err, formatDuration, formatVec, ok, tell } from '../core/util';
 import { balanceOf, money, richest, transfer } from '../modules/economy';
 import { ShopEntry, auctions, buy, categories, itemsIn, listForSale, listingsOf, sell, unitPrice, unlist } from '../modules/shop';
 import { warps, goTo, randomTeleport } from '../modules/teleport';
+import {
+  createPlayerWarp,
+  playerWarpsEnabled,
+  popularWarps,
+  removePlayerWarp,
+  visitPlayerWarp,
+  warpLimit,
+  warpsOwnedBy,
+} from '../modules/playerwarps';
 import { SKILLS, levelOf, levelProgress } from '../modules/skills';
 import { describeRequirement, ladder, rankOf } from '../modules/ranks';
 import { jobOf, jobs, jobsEnabled } from '../modules/jobs';
@@ -39,6 +48,9 @@ export async function openMemberMenu(player: Player): Promise<void> {
       { text: `${C.gold}Auction House`, icon: 'textures/ui/adm_auction', onClick: () => openAuction(player) },
       { text: `${C.accent}Homes`, icon: 'textures/ui/adm_home', onClick: () => openHomes(player) },
       { text: `${C.accent}Warps`, icon: 'textures/ui/adm_warp', onClick: () => openWarps(player) },
+      ...(playerWarpsEnabled()
+        ? [{ text: `${C.good}Player Warps`, icon: 'textures/ui/adm_pwarp', onClick: () => openPlayerWarps(player) }]
+        : []),
       { text: `${C.warn}Land`, icon: 'textures/ui/adm_land', onClick: () => openLand(player) },
       { text: `${C.good}Rewards`, icon: 'textures/ui/adm_reward', onClick: () => openRewards(player) },
       { text: `${C.accent}Progression`, icon: 'textures/ui/adm_progress', onClick: () => openProgression(player) },
@@ -354,6 +366,90 @@ async function openWarps(player: Player): Promise<void> {
       ok(player, `Warped to ${warp.name}.`);
     },
     back: () => openMemberMenu(player),
+  });
+}
+
+/**
+ * Player warps get their own screen so the destinations staff curate are never
+ * confused with whatever players have published.
+ */
+async function openPlayerWarps(player: Player): Promise<void> {
+  const all = popularWarps();
+  const mine = warpsOwnedBy(player.id);
+
+  await menu(player, {
+    title: `${C.title}Player Warps`,
+    body: [
+      `${C.dim}Public places published by players.`,
+      `${C.dim}Yours: ${C.white}${mine.length}/${warpLimit(player)}`,
+    ].join('\n'),
+    buttons: [
+      { text: `${C.good}+ Publish a warp here`, onClick: () => openPublishWarp(player) },
+      ...(mine.length > 0 ? [{ text: `${C.gold}Manage my warps (${mine.length})`, onClick: () => openMyWarps(player) }] : []),
+      ...(all.length > 0 ? [{ text: `${C.accent}Browse all (${all.length})`, onClick: () => openBrowseWarps(player) }] : []),
+    ],
+    back: () => openMemberMenu(player),
+  });
+}
+
+async function openBrowseWarps(player: Player): Promise<void> {
+  await paged(player, {
+    title: `${C.title}Player Warps`,
+    body: `${C.dim}Sorted by how often they are visited.`,
+    items: popularWarps(),
+    render: (warp) => ({
+      text: `${C.accent}${warp.name}\n${C.dim}by ${warp.ownerName}${warp.description ? ` - ${warp.description}` : ''} (${warp.visits} visits)`,
+    }),
+    onPick: (warp) => visitPlayerWarp(player, warp),
+    back: () => openPlayerWarps(player),
+  });
+}
+
+async function openPublishWarp(player: Player): Promise<void> {
+  const cost = cfg().playerWarpCost;
+  const values = await prompt(player, 'Publish a player warp', [
+    { kind: 'text', label: 'Name (anyone can travel here by this)', placeholder: 'Sky Market' },
+    { kind: 'text', label: 'Short description (optional)', placeholder: 'Cheap redstone' },
+  ], cost > 0 ? `Publish for ${money(cost)}` : 'Publish');
+  if (!values) return;
+
+  const problem = createPlayerWarp(player, String(values[0]), String(values[1]));
+  if (problem) return err(player, problem);
+  ok(player, `Published "${String(values[0]).trim()}". Anyone can travel here now.`);
+}
+
+async function openMyWarps(player: Player): Promise<void> {
+  await paged(player, {
+    title: `${C.title}My Player Warps`,
+    items: warpsOwnedBy(player.id),
+    render: (warp) => ({
+      text: `${C.accent}${warp.name}\n${C.dim}${formatVec(warp)} - ${warp.visits} visits`,
+    }),
+    onPick: async (warp) => {
+      await menu(player, {
+        title: `${C.title}${warp.name}`,
+        body: [
+          `${C.dim}Location: ${C.white}${formatVec(warp)}`,
+          `${C.dim}Visits: ${C.white}${warp.visits}`,
+          warp.description ? `${C.dim}Description: ${C.white}${warp.description}` : '',
+        ].filter(Boolean).join('\n'),
+        buttons: [
+          { text: `${C.accent}Travel there`, onClick: () => visitPlayerWarp(player, warp) },
+          {
+            text: `${C.bad}Delete this warp`,
+            onClick: async () => {
+              const yes = await confirm(player, 'Delete warp', `Remove "${warp.name}"? Anyone using it will lose access.`);
+              if (!yes) return;
+              const problem = removePlayerWarp(player, warp);
+              if (problem) err(player, problem);
+              else ok(player, 'Warp removed.');
+            },
+          },
+        ],
+        back: () => openMyWarps(player),
+      });
+    },
+    back: () => openPlayerWarps(player),
   });
 }
 

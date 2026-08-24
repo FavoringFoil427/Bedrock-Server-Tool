@@ -164,6 +164,11 @@ const ICONS = {
   auction: [C.gold, (i) => { line(i, 9, 23, 21, 11, 4, WHITE); rect(i, 17, 5, 27, 12, WHITE); rect(i, 6, 25, 20, 28, WHITE); }],
   home: [C.teal, (i) => { tri(i, 16, 5, 4, 16, 28, 16, WHITE); rect(i, 8, 16, 24, 27, WHITE); rect(i, 13, 19, 19, 27, C.teal); }],
   warp: [C.purple, (i) => { ring(i, 16, 16, 10, 3, WHITE); tri(i, 22, 16, 12, 10, 12, 22, WHITE); }],
+  pwarp: [C.teal, (i) => {
+    rect(i, 14, 5, 18, 28, WHITE);
+    tri(i, 18, 8, 28, 11, 18, 14, WHITE);
+    tri(i, 14, 17, 4, 20, 14, 23, WHITE);
+  }],
   land: [C.olive, (i) => { rect(i, 9, 5, 12, 28, WHITE); tri(i, 12, 6, 25, 11, 12, 16, WHITE); }],
   reward: [C.pink, (i) => {
     rect(i, 5, 13, 27, 17, WHITE); rect(i, 7, 17, 25, 27, WHITE);

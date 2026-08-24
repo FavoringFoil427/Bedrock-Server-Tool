@@ -26,9 +26,9 @@ Two escape hatches exist:
 | **Admin** | 80 | `menu.admin`, `players.*`, `mod.*`, `world.*`, `economy.*`, `tp.*` …(+10) |
 | **Mod** | 60 | `menu.admin`, `players.view`, `players.teleport`, `mod.kick`, `mod.mute`, `mod.freeze` …(+5) |
 | **Builder** | 40 | `menu.admin`, `players.gamemode`, `world.time`, `world.weather`, `hologram.admin` |
-| **Member** _(default role)_ | 0 | `menu.member`, `economy.balance`, `economy.pay`, `shop.use`, `shop.sell`, `auction.use` …(+11) |
+| **Member** _(default role)_ | 0 | `menu.member`, `economy.balance`, `economy.pay`, `shop.use`, `shop.sell`, `auction.use` …(+13) |
 
-## All nodes (61)
+## All nodes (64)
 
 ### General
 
@@ -85,6 +85,9 @@ Two escape hatches exist:
 - `tp.home`
 - `tp.warp`
 - `tp.warp.admin`
+- `tp.pwarp`
+- `tp.pwarp.create`
+- `tp.pwarp.admin`
 - `tp.tpa`
 - `tp.rtp`
 - `tp.back`

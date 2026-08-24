@@ -51,7 +51,7 @@ the starter kit.
 | **Economy** | Balances, transfers with configurable tax, leaderboard, admin adjustment, bulk `!deposit` |
 | **Shop & auction** | Shop starts empty. Staff add unlimited-stock server listings; any player can open a stall backed by their own stock at their own price. Plus sell-hand, bulk deposit and a one-off auction house |
 | **Land claims** | Rectangular claims with trust lists, container and PvP flags, chunk-indexed protection |
-| **Teleporting** | Homes, warps, `!tpa`/`!tpahere` with warmup, random teleport, `!back`, spawn |
+| **Teleporting** | Three tiers of destination — private homes, staff-curated server warps, and public player warps anyone can publish — plus `!tpa`/`!tpahere` with warmup, random teleport, `!back` and spawn |
 | **Progression** | Rank ladder (automatic and purchasable), five passive skills with milestone perks, jobs that pay for ordinary play, quests, and reward XP that doubles as spendable enchanting levels |
 | **Rewards** | Starter kits, daily reward streaks, configurable kits, redeemable codes |
 | **Social** | Clans with a shared bank and clan chat, wagered duels in a bounded ring |
@@ -190,6 +190,12 @@ A few decisions worth knowing:
 - **Module order matters** in `src/main.ts`: `land` installs PvP protection that
   `duels` deliberately overrides, and `combat` loads after `duels` so duellists
   are exempt from combat tagging.
+- **Three tiers of destination, deliberately separate.** A home is private to
+  one player; a server warp is public but staff-only to create; a player warp is
+  public and anyone may publish one. They live in separate tables and separate
+  menus so the destinations staff curate are never mixed in with whatever
+  players have published. Publishing is blocked inside a claim you could not
+  build in, since a warp there would hand everyone a doorway into someone's base.
 - **Two kinds of XP, kept apart.** Skill XP levels the five passive skills and
   drives the job pay multiplier. Account XP is a lifetime total that feeds rank
   progression, and deliberate rewards - daily, kits, codes, quests, duel wins -

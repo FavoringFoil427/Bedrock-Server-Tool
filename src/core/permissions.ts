@@ -55,7 +55,10 @@ export const PERMISSION_GROUPS: Record<string, string[]> = {
     'world.entities',
   ],
   Economy: ['economy.balance', 'economy.pay', 'economy.admin', 'shop.use', 'shop.sell', 'shop.admin', 'auction.use'],
-  Teleport: ['tp.home', 'tp.warp', 'tp.warp.admin', 'tp.tpa', 'tp.rtp', 'tp.back'],
+  Teleport: [
+    'tp.home', 'tp.warp', 'tp.warp.admin', 'tp.pwarp', 'tp.pwarp.create', 'tp.pwarp.admin',
+    'tp.tpa', 'tp.rtp', 'tp.back',
+  ],
   Land: ['land.claim', 'land.admin'],
   Progression: ['ranks.admin', 'skills.use', 'jobs.use', 'quests.use', 'quests.admin'],
   Content: ['npc.admin', 'hologram.admin', 'kit.admin', 'redeem.admin', 'broadcast.admin', 'cosmetic.admin', 'cosmetic.staff'],
@@ -112,7 +115,7 @@ export function ensureDefaultRoles(): void {
       isDefault: true,
       permissions: [
         'menu.member', 'economy.balance', 'economy.pay', 'shop.use', 'shop.sell', 'auction.use',
-        'tp.home', 'tp.warp', 'tp.tpa', 'tp.rtp', 'tp.back', 'land.claim',
+        'tp.home', 'tp.warp', 'tp.pwarp', 'tp.pwarp.create', 'tp.tpa', 'tp.rtp', 'tp.back', 'land.claim',
         'skills.use', 'jobs.use', 'quests.use', 'clan.use', 'duel.use',
       ],
     },

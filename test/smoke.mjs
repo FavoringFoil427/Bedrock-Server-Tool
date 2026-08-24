@@ -276,6 +276,49 @@ __test.flush();
 check('breaking a block grants no vanilla experience', player.experience === beforePassive,
   `${beforePassive} -> ${player.experience}`);
 
+// Player warps: public, player-created, and distinct from server warps.
+say(player, '!setpwarp SkyMarket Cheap redstone');
+check('a player can publish a warp', player.messages.some((m) => /Published/i.test(m)),
+  player.messages.join(' | '));
+
+say(admin, '!pwarp');
+check('published warp is public to everyone', admin.messages.some((m) => /SkyMarket/i.test(m)),
+  admin.messages.join(' | '));
+
+// Names are claimed globally, so a second warp cannot shadow the first.
+say(admin, '!setpwarp SkyMarket Copycat');
+check('duplicate warp names are refused', admin.messages.some((m) => /already/i.test(m)),
+  admin.messages.join(' | '));
+
+// The per-player limit must hold.
+say(player, '!setpwarp Second one');
+say(player, '!setpwarp Third one');
+check('player warp limit is enforced',
+  player.messages.some((m) => /only have/i.test(m)), player.messages.join(' | '));
+
+// Server warps stay staff-only; a member must not be able to add one.
+const member = new Player('Member', 'p-member');
+__test.players.push(member);
+world.afterEvents.playerSpawn.emit({ player: member, initialSpawn: true });
+for (const t of system.timeouts.splice(0)) t.cb();
+__test.flush();
+member.messages.length = 0;
+world.beforeEvents.chatSend.emit({ sender: member, message: '!setwarp Spawn', cancel: false });
+__test.flush();
+check('server warps remain staff-only',
+  member.messages.some((m) => /permission/i.test(m)), member.messages.join(' | '));
+
+// ...while player warps are open to that same member.
+member.messages.length = 0;
+world.beforeEvents.chatSend.emit({ sender: member, message: '!setpwarp MemberSpot', cancel: false });
+__test.flush();
+check('player warps are open to ordinary players',
+  member.messages.some((m) => /Published/i.test(m)), member.messages.join(' | '));
+
+say(player, '!delpwarp SkyMarket');
+check('owner can remove their warp', player.messages.some((m) => /Removed/i.test(m)),
+  player.messages.join(' | '));
+
 // Persistence must survive a shutdown/reload cycle.
 system.beforeEvents.shutdown.emit({});
 __test.flush();
