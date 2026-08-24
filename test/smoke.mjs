@@ -205,6 +205,38 @@ __test.particles.length = 0;
 for (const i of system.intervals) i.cb();
 check('removing a cosmetic stops the particles', __test.particles.length === 0, `${__test.particles.length} emitted`);
 
+// Player stalls: listing, buying, payment, stock and the exploit guard.
+say(player, '!balance');
+const sellerBefore = /(\d[\d,]*)/.exec(player.messages.join(' '))?.[1];
+
+player.hold('minecraft:diamond', 64);
+say(player, '!listitem 500 8 4');
+check('player listing was created', player.messages.some((m) => /Listed/i.test(m)), player.messages.join(' | '));
+check('stock was taken from the seller inventory',
+  player.slots.filter((x) => x?.typeId === 'minecraft:diamond').reduce((n, x) => n + (x?.amount ?? 0), 0) === 32,
+  'expected 32 diamonds left of 64');
+
+say(player, '!mylistings');
+const listingId = /(p_[a-z0-9]+)/.exec(player.messages.join(' '))?.[1];
+check('listing is visible to its owner', Boolean(listingId), player.messages.join(' | '));
+
+// A second player buys a bundle; the seller should be paid.
+say(admin, '!shop Player Stalls');
+check('listing appears in the shop', admin.messages.some((m) => /Diamond/i.test(m)), admin.messages.join(' | '));
+
+say(player, '!balance');
+const sellerAfterList = player.messages.join(' ');
+check('seller balance unchanged by listing', sellerAfterList.includes(String(sellerBefore ?? '')), sellerAfterList);
+
+// The exploit guard: a player listing must never be sellable back to the shop.
+say(player, '!sellhand');
+check('player listings cannot be sold back to the shop',
+  !player.messages.some((m) => /Sold for/i.test(m)), player.messages.join(' | '));
+
+say(player, `!unlist ${listingId}`);
+check('unlisting returns the stock', player.messages.some((m) => /stock returned/i.test(m)),
+  player.messages.join(' | '));
+
 // Persistence must survive a shutdown/reload cycle.
 system.beforeEvents.shutdown.emit({});
 __test.flush();

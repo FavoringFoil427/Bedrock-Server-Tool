@@ -19,7 +19,7 @@ import { cleanEntities, setTime, setWeather } from '../modules/worldtools';
 import { holograms } from '../modules/display';
 import { warps } from '../modules/teleport';
 import { claims } from '../modules/land';
-import { shopItems } from '../modules/shop';
+import { shopItems, unlist } from '../modules/shop';
 import { codes, kits } from '../modules/rewards';
 import { ladder } from '../modules/ranks';
 import { availableLocales } from '../core/i18n';
@@ -453,7 +453,7 @@ async function openEconomy(player: Player): Promise<void> {
             body: shopItems.size === 0
               ? `${C.dim}The shop is empty. Hold an item and use "Add the item you are holding".`
               : `${C.dim}Tap an item to change its prices or remove it.`,
-            items: shopItems.values(),
+            items: shopItems.values().filter((entry) => entry.sellerId === undefined),
             render: (entry) => ({
               text: `${C.white}${entry.name}\n${C.dim}${entry.category} - buy ${entry.buyPrice} / sell ${entry.sellPrice}`,
             }),
@@ -479,6 +479,27 @@ async function openEconomy(player: Player): Promise<void> {
           }),
       },
       {
+        text: `${C.warn}Player listings (${shopItems.values().filter((e) => e.sellerId !== undefined).length})`,
+        onClick: () =>
+          paged(player, {
+            title: `${C.title}Player listings`,
+            body: `${C.dim}Removing a listing returns the stock to whoever listed it.`,
+            items: shopItems.values().filter((entry) => entry.sellerId !== undefined),
+            render: (entry) => ({
+              text: `${C.white}${entry.amount}x ${entry.name}\n${C.dim}${money(entry.buyPrice)} - ${entry.stock} left, from ${entry.sellerName}`,
+            }),
+            onPick: async (entry) => {
+              const yes = await confirm(player, 'Remove listing',
+                `Take down ${entry.sellerName}'s listing of ${entry.name}? The stock goes back to them.`);
+              if (!yes) return;
+              const problem = unlist(player, entry);
+              if (problem) err(player, problem);
+              else ok(player, 'Listing removed.');
+            },
+            back: () => openEconomy(player),
+          }),
+      },
+      {
         text: `${C.accent}Economy settings`,
         onClick: async () => {
           const config = cfg();
@@ -487,6 +508,9 @@ async function openEconomy(player: Player): Promise<void> {
             { kind: 'text', label: 'Currency name', default: config.currencyName },
             { kind: 'text', label: 'Starting balance', default: String(config.startingBalance) },
             { kind: 'slider', label: 'Pay tax %', min: 0, max: 50, step: 1, default: config.payTaxPercent },
+            { kind: 'toggle', label: 'Allow player listings', default: config.playerListingsEnabled },
+            { kind: 'slider', label: 'Max listings per player', min: 1, max: 30, step: 1, default: config.maxListingsPerPlayer },
+            { kind: 'slider', label: 'Market fee % (server cut)', min: 0, max: 50, step: 1, default: config.marketFeePercent },
           ]);
           if (!values) return;
           saveConfig((c) => {
@@ -494,6 +518,9 @@ async function openEconomy(player: Player): Promise<void> {
             c.currencyName = String(values[1]) || 'Coins';
             c.startingBalance = Number.parseInt(String(values[2]), 10) || 0;
             c.payTaxPercent = Number(values[3]);
+            c.playerListingsEnabled = Boolean(values[4]);
+            c.maxListingsPerPlayer = Number(values[5]);
+            c.marketFeePercent = Number(values[6]);
           });
           ok(player, 'Economy settings saved.');
         },

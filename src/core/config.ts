@@ -10,6 +10,12 @@ export interface Config {
   motd: string;
 
   /** Economy */
+  /** Player stalls: anyone may list their own stock at their own price. */
+  playerListingsEnabled: boolean;
+  maxListingsPerPlayer: number;
+  /** Percentage the server takes from each player sale, as an economy sink. */
+  marketFeePercent: number;
+
   currencySymbol: string;
   currencyName: string;
   startingBalance: number;
@@ -82,6 +88,10 @@ export function defaultConfig(): Config {
 
     serverName: 'My Server',
     motd: '§bWelcome to the server!',
+
+    playerListingsEnabled: true,
+    maxListingsPerPlayer: 5,
+    marketFeePercent: 0,
 
     currencySymbol: '$',
     currencyName: 'Coins',

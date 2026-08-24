@@ -1,11 +1,11 @@
-import { Player } from '@minecraft/server';
+import { EquipmentSlot, Player } from '@minecraft/server';
 import { menu, paged, prompt, askText, confirm } from '../core/ui';
 import { cfg } from '../core/config';
 import { profileOf, profiles } from '../core/profiles';
 import { topRole } from '../core/permissions';
 import { C, err, formatDuration, formatVec, ok, tell } from '../core/util';
 import { balanceOf, money, richest, transfer } from '../modules/economy';
-import { ShopEntry, auctions, buy, categories, itemsIn, sell } from '../modules/shop';
+import { ShopEntry, auctions, buy, categories, itemsIn, listForSale, listingsOf, sell, unlist } from '../modules/shop';
 import { warps, goTo, randomTeleport } from '../modules/teleport';
 import { SKILLS, levelOf, levelProgress } from '../modules/skills';
 import { describeRequirement, ladder, rankOf } from '../modules/ranks';
@@ -119,13 +119,61 @@ export async function openShopCategories(player: Player): Promise<void> {
   await menu(player, {
     title: `${C.title}Shop`,
     body: empty
-      ? `${C.dim}The shop has nothing in it yet.\n${C.dim}An admin stocks it from Admin Suite -> Economy.`
+      ? `${C.dim}The shop is empty. Hold something and use "Sell your items here".`
       : `${C.dim}Balance: ${C.good}${money(balanceOf(profileOf(player)))}`,
-    buttons: list.map((category) => ({
-      text: `${C.accent}${category}`,
-      onClick: () => openShopCategory(player, category),
-    })),
+    buttons: [
+      ...list.map((category) => ({
+        text: `${C.accent}${category}`,
+        onClick: () => openShopCategory(player, category),
+      })),
+      { text: `${C.good}+ Sell your items here`, onClick: () => openSellForm(player) },
+      { text: `${C.gold}My listings (${listingsOf(player.id).length})`, onClick: () => openMyListings(player) },
+    ],
     back: () => openMemberMenu(player),
+  });
+}
+
+/** Lists whatever the player is holding, at a price they choose. */
+async function openSellForm(player: Player): Promise<void> {
+  const held = player.getComponent('minecraft:equippable')?.getEquipment(EquipmentSlot.Mainhand);
+  if (!held) return err(player, 'Hold the item you want to sell, then try again.');
+
+  const known = categories().filter((c) => c !== 'Player Stalls');
+  const options = ['Player Stalls', ...known];
+
+  const values = await prompt(player, `Sell ${prettyItemName(held.typeId)}`, [
+    { kind: 'text', label: 'Price per bundle', placeholder: '100' },
+    { kind: 'slider', label: 'Items per bundle', min: 1, max: 64, step: 1, default: 1 },
+    { kind: 'slider', label: 'Bundles to list', min: 1, max: 36, step: 1, default: 1 },
+    { kind: 'dropdown', label: 'Category', options },
+  ]);
+  if (!values) return;
+
+  const price = Number.parseInt(String(values[0]), 10);
+  if (!Number.isFinite(price) || price <= 0) return err(player, 'Give a price above zero.');
+
+  const problem = listForSale(player, price, Number(values[1]), Number(values[2]), options[Number(values[3])]);
+  if (problem) return err(player, problem);
+  ok(player, `Listed for ${money(price)} per bundle.`);
+}
+
+async function openMyListings(player: Player): Promise<void> {
+  const mine = listingsOf(player.id);
+  await paged(player, {
+    title: `${C.title}My listings`,
+    body: mine.length === 0 ? `${C.dim}You have nothing listed.` : `${C.dim}Tap a listing to take it down.`,
+    items: mine,
+    render: (entry) => ({
+      text: `${C.white}${entry.amount}x ${entry.name}\n${C.dim}${money(entry.buyPrice)} each - ${entry.stock} left`,
+    }),
+    onPick: async (entry) => {
+      const yes = await confirm(player, 'Take down listing', `Remove ${entry.name} and get the stock back?`, `${C.good}Take down`);
+      if (!yes) return;
+      const problem = unlist(player, entry);
+      if (problem) err(player, problem);
+      else ok(player, 'Listing removed and stock returned.');
+    },
+    back: () => openShopCategories(player),
   });
 }
 
@@ -135,7 +183,9 @@ async function openShopCategory(player: Player, category: string): Promise<void>
     body: `${C.dim}Balance: ${C.good}${money(balanceOf(profileOf(player)))}`,
     items: itemsIn(category),
     render: (entry) => ({
-      text: `${C.white}${entry.amount}x ${entry.name}\n${C.dim}${entry.buyPrice > 0 ? `Buy ${money(entry.buyPrice)}` : 'Not for sale'}${entry.sellPrice > 0 ? ` | Sell ${money(entry.sellPrice)}` : ''}`,
+      text: entry.sellerId
+        ? `${C.white}${entry.amount}x ${entry.name}\n${C.dim}${money(entry.buyPrice)} - ${entry.stock} left, from ${entry.sellerName}`
+        : `${C.white}${entry.amount}x ${entry.name}\n${C.dim}${entry.buyPrice > 0 ? `Buy ${money(entry.buyPrice)}` : 'Not for sale'}${entry.sellPrice > 0 ? ` | Sell ${money(entry.sellPrice)}` : ''}`,
     }),
     onPick: (entry) => openShopItem(player, entry, category),
     back: () => openShopCategories(player),

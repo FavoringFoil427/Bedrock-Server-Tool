@@ -9,7 +9,7 @@ Every command works two ways:
 
 Arguments in `<angle brackets>` are required; `[square brackets]` are optional.
 
-There are **103 commands** across 12 categories.
+There are **106 commands** across 12 categories.
 
 ## Account
 
@@ -40,11 +40,14 @@ There are **103 commands** across 12 categories.
 | `!deposit` | `shop.use` | Sell every sellable item in your inventory. |
 | `!eco <action> <player> <amount>` | `economy.admin` | Admin: give, take or set a balance. |
 | `!givemoneyall <amount>` | `economy.admin` | Admin: give money to every online player. |
+| `!listitem <price> [bundleSize] [bundles]` <br>_aliases: `stall`_ | `shop.sell` | List the item you are holding for sale at your own price. |
+| `!mylistings` | `shop.sell` | Show the items you have listed for sale. |
 | `!pay <player> <amount>` | `economy.pay` | Send money to another player. |
 | `!sellhand` | `shop.use` | Sell the stack you are holding. |
-| `!shop [category]` | `shop.use` | Browse the server shop. |
+| `!shop [category]` | `shop.use` | Browse the shop. |
 | `!shopadd <itemId> <category> <buy> <sell> [amount]` | `shop.admin` | Admin: add an item to the shop. |
 | `!shopremove <itemId>` | `shop.admin` | Admin: remove a shop item. |
+| `!unlist <id>` | `shop.sell` | Take down one of your listings and get the stock back. |
 
 ## General
 

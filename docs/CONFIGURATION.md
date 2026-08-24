@@ -13,11 +13,9 @@ Every setting lives in the world and is edited in-game through
 | `language` | `string` | `'en'` |  |
 | `serverName` | `string` | `'My Server'` |  |
 | `motd` | `string` | `'§bWelcome to the server!'` |  |
-
-## Economy
-
-| Setting | Type | Default | Notes |
-| --- | --- | --- | --- |
+| `playerListingsEnabled` | `boolean` | `true` | Economy Player stalls: anyone may list their own stock at their own price. |
+| `maxListingsPerPlayer` | `number` | `5` |  |
+| `marketFeePercent` | `number` | `0` | Percentage the server takes from each player sale, as an economy sink. |
 | `currencySymbol` | `string` | `'$'` |  |
 | `currencyName` | `string` | `'Coins'` |  |
 | `startingBalance` | `number` | `100` |  |

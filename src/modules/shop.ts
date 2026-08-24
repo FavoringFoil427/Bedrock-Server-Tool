@@ -5,15 +5,22 @@ import { Table } from '../core/storage';
 import { profileByName, profileOf, profiles, onlinePlayer } from '../core/profiles';
 import { countItem, giveItem, makeStack, prettyItemName, removeItem } from '../core/items';
 import { C, err, now, ok, tell, uid } from '../core/util';
+import { cfg } from '../core/config';
 import { addMoney, balanceOf, charge, money } from './economy';
 
 /**
- * Server shop and player auction house.
+ * The shop, holding two kinds of listing.
  *
- * The shop starts empty and holds only what the server puts in it, so it can
- * match whatever economy the world is actually running rather than a generic
- * catalogue nobody asked for. Prices are static by design: dynamic pricing is
- * fun for a week and then becomes impossible for players to reason about.
+ * A *server* listing is created by staff and has unlimited stock: it both sells
+ * to players and buys from them at fixed prices, acting as the economy's faucet
+ * and sink.
+ *
+ * A *player* listing is created by anyone and is backed by real stock, taken
+ * from the lister's inventory when they create it. Buyers pay the lister and
+ * the stock falls; when it runs out the listing disappears. This is the reason
+ * players set a price on what they sell but never on what the shop buys: a
+ * player-set buy-back price would let anyone list dirt at a fortune and sell it
+ * to the server forever.
  */
 
 export interface ShopEntry {
@@ -23,9 +30,20 @@ export interface ShopEntry {
   category: string;
   /** Zero disables buying. */
   buyPrice: number;
-  /** Zero disables selling. */
+  /** Zero disables selling. Only meaningful on server listings. */
   sellPrice: number;
   amount: number;
+  /** Set on player listings; absent means this is a server listing. */
+  sellerId?: string;
+  sellerName?: string;
+  /** Bundles remaining. Only present on player listings. */
+  stock?: number;
+  listedAt?: number;
+}
+
+/** True when the listing is stocked and owned by a player. */
+export function isPlayerListing(entry: ShopEntry): entry is ShopEntry & { sellerId: string; stock: number } {
+  return entry.sellerId !== undefined;
 }
 
 export interface AuctionLot {
@@ -52,18 +70,128 @@ export function itemsIn(category: string): ShopEntry[] {
 /** Buys `entry` for the player. Returns an error string, or undefined on success. */
 export function buy(player: Player, entry: ShopEntry, bundles = 1): string | undefined {
   if (entry.buyPrice <= 0) return 'That item is not for sale.';
+  if (isPlayerListing(entry)) {
+    if (entry.sellerId === player.id) return 'That is your own listing.';
+    if (entry.stock < bundles) return `Only ${entry.stock} left.`;
+  }
+
   const profile = profileOf(player);
   const cost = entry.buyPrice * bundles;
   const stack = makeStack(entry.typeId, entry.amount * bundles);
   if (!stack) return 'That item no longer exists in this version.';
   if (!charge(profile, cost)) return `You need ${money(cost)}.`;
   giveItem(player, stack);
+
+  if (isPlayerListing(entry)) {
+    entry.stock -= bundles;
+    const seller = profiles.get(entry.sellerId);
+    if (seller) {
+      // The server may take a cut, which gives the economy a sink.
+      const fee = Math.round((cost * cfg().marketFeePercent) / 100);
+      addMoney(seller, cost - fee);
+      const online = onlinePlayer(seller);
+      if (online) {
+        tell(online, `${C.good}${player.name} bought ${bundles}x ${entry.name} for ${money(cost - fee)}.`);
+      }
+    }
+    if (entry.stock <= 0) shopItems.delete(entry.id);
+    else shopItems.markDirty();
+  }
+  return undefined;
+}
+
+/** Listings owned by a player. */
+export function listingsOf(playerId: string): ShopEntry[] {
+  return shopItems.values().filter((entry) => entry.sellerId === playerId);
+}
+
+/**
+ * Creates a player listing from the held stack.
+ * Returns an error string, or undefined on success.
+ */
+export function listForSale(
+  player: Player,
+  price: number,
+  bundleSize: number,
+  bundles: number,
+  category: string,
+): string | undefined {
+  const config = cfg();
+  if (!config.playerListingsEnabled) return 'Player listings are disabled on this server.';
+  if (price <= 0) return 'Set a price above zero.';
+  if (bundleSize < 1 || bundles < 1) return 'Give a valid amount.';
+
+  const held = player.getComponent('minecraft:equippable')?.getEquipment(EquipmentSlot.Mainhand);
+  if (!held) return 'Hold the item you want to sell.';
+
+  const mine = listingsOf(player.id);
+  if (mine.length >= config.maxListingsPerPlayer && !can(player, 'shop.admin')) {
+    return `You can only have ${config.maxListingsPerPlayer} listings at once.`;
+  }
+
+  const wanted = bundleSize * bundles;
+  if (countItem(player, held.typeId) < wanted) return `You need ${wanted}x ${prettyItemName(held.typeId)}.`;
+
+  const taken = removeItem(player, held.typeId, wanted);
+  if (taken < wanted) {
+    // Put back whatever was pulled before giving up, so nothing is lost.
+    const refund = makeStack(held.typeId, taken);
+    if (refund) giveItem(player, refund);
+    return 'Could not take the items from your inventory.';
+  }
+
+  const id = `p_${uid()}`;
+  shopItems.set(id, {
+    id,
+    typeId: held.typeId,
+    name: prettyItemName(held.typeId),
+    category: category || 'Player Stalls',
+    buyPrice: price,
+    sellPrice: 0,
+    amount: bundleSize,
+    sellerId: player.id,
+    sellerName: player.name,
+    stock: bundles,
+    listedAt: now(),
+  });
+  return undefined;
+}
+
+/**
+ * Cancels a player listing. The stock always goes back to whoever listed it,
+ * never to the staff member removing it. If that owner is offline the items
+ * cannot be handed over, so they are paid the listed value instead rather than
+ * having their stock quietly destroyed.
+ */
+export function unlist(player: Player, entry: ShopEntry): string | undefined {
+  if (!isPlayerListing(entry)) return 'That is a server listing.';
+  const isOwner = entry.sellerId === player.id;
+  if (!isOwner && !can(player, 'shop.admin')) return 'That is not your listing.';
+
+  const owner = profiles.get(entry.sellerId);
+  const recipient = isOwner ? player : owner ? onlinePlayer(owner) : undefined;
+
+  if (recipient) {
+    let remaining = entry.stock * entry.amount;
+    while (remaining > 0) {
+      const size = Math.min(64, remaining);
+      const stack = makeStack(entry.typeId, size);
+      if (!stack) break;
+      giveItem(recipient, stack);
+      remaining -= size;
+    }
+    if (!isOwner) tell(recipient, `${C.warn}Your listing of ${entry.name} was removed by staff.`);
+  } else if (owner) {
+    addMoney(owner, entry.buyPrice * entry.stock);
+  }
+  shopItems.delete(entry.id);
   return undefined;
 }
 
 /** Sells `bundles` worth of an entry from the player's inventory. */
 export function sell(player: Player, entry: ShopEntry, bundles = 1): string | undefined {
-  if (entry.sellPrice <= 0) return 'That item cannot be sold here.';
+  // Only the server buys items; a player listing is stock, not a buy order.
+  if (isPlayerListing(entry) || entry.sellPrice <= 0) return 'That item cannot be sold here.';
   const wanted = entry.amount * bundles;
   if (countItem(player, entry.typeId) < wanted) return `You need ${wanted}x ${entry.name}.`;
   const removed = removeItem(player, entry.typeId, wanted);
@@ -76,9 +204,11 @@ export function install(): void {
 
   register({
     name: 'shop',
-    description: 'Browse the server shop.',
+    description: 'Browse the shop.',
     category: 'Economy',
     permission: 'shop.use',
+    // Categories may contain spaces, so the name swallows the rest of the line.
+    greedy: true,
     args: [{ name: 'category', type: 'string', optional: true }],
     handler: ({ player, args }) => {
       if (shopItems.size === 0) {
@@ -105,6 +235,62 @@ export function install(): void {
         const sellText = entry.sellPrice > 0 ? `${C.warn}sell ${money(entry.sellPrice)}` : `${C.dim}no sell`;
         player.sendMessage(`  ${C.white}${entry.amount}x ${entry.name} ${C.dim}- ${buyText} ${C.dim}| ${sellText}`);
       }
+    },
+  });
+
+  register({
+    name: 'listitem',
+    aliases: ['stall'],
+    description: 'List the item you are holding for sale at your own price.',
+    category: 'Economy',
+    permission: 'shop.sell',
+    args: [
+      { name: 'price', type: 'int' },
+      { name: 'bundleSize', type: 'int', optional: true },
+      { name: 'bundles', type: 'int', optional: true },
+    ],
+    handler: ({ player, args }) => {
+      const price = Number.parseInt(args[0] ?? '', 10);
+      const bundleSize = Number.parseInt(args[1] ?? '1', 10) || 1;
+      const bundles = Number.parseInt(args[2] ?? '1', 10) || 1;
+      if (!Number.isFinite(price)) return err(player, 'Give a price.');
+
+      const problem = listForSale(player, price, bundleSize, bundles, 'Player Stalls');
+      if (problem) return err(player, problem);
+      ok(player, `Listed ${bundles}x (${bundleSize} per bundle) at ${money(price)} each.`);
+    },
+  });
+
+  register({
+    name: 'mylistings',
+    description: 'Show the items you have listed for sale.',
+    category: 'Economy',
+    permission: 'shop.sell',
+    handler: ({ player }) => {
+      const mine = listingsOf(player.id);
+      if (mine.length === 0) return tell(player, `${C.dim}You have nothing listed.`);
+      tell(player, `${C.title}Your listings`);
+      for (const entry of mine) {
+        player.sendMessage(
+          `  ${C.accent}${entry.id} ${C.white}${entry.amount}x ${entry.name} ${C.dim}- ${money(entry.buyPrice)} each, ${entry.stock} left`,
+        );
+      }
+      player.sendMessage(`${C.dim}Use !unlist <id> to take one down.`);
+    },
+  });
+
+  register({
+    name: 'unlist',
+    description: 'Take down one of your listings and get the stock back.',
+    category: 'Economy',
+    permission: 'shop.sell',
+    args: [{ name: 'id', type: 'string' }],
+    handler: ({ player, args }) => {
+      const entry = shopItems.get(args[0] ?? '');
+      if (!entry) return err(player, 'No listing with that id.');
+      const problem = unlist(player, entry);
+      if (problem) return err(player, problem);
+      ok(player, 'Listing removed and stock returned.');
     },
   });
 

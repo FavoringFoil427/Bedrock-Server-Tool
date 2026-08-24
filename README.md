@@ -49,7 +49,7 @@ the starter kit.
 | **Moderation** | Timed and permanent bans, mutes, kick, freeze, vanish, staff spy channel, player reports, chat word filter, anti-spam |
 | **World management** | Time, weather, difficulty, game rules, entity cleanup, soft world border |
 | **Economy** | Balances, transfers with configurable tax, leaderboard, admin adjustment, bulk `!deposit` |
-| **Shop & auction** | Shop starts empty and is stocked by staff with their own prices; sell-hand, bulk deposit, and a player-run auction house |
+| **Shop & auction** | Shop starts empty. Staff add unlimited-stock server listings; any player can open a stall backed by their own stock at their own price. Plus sell-hand, bulk deposit and a one-off auction house |
 | **Land claims** | Rectangular claims with trust lists, container and PvP flags, chunk-indexed protection |
 | **Teleporting** | Homes, warps, `!tpa`/`!tpahere` with warmup, random teleport, `!back`, spawn |
 | **Progression** | Rank ladder (automatic and purchasable), five passive skills with milestone perks, jobs that pay for ordinary play, quests |
@@ -190,6 +190,11 @@ A few decisions worth knowing:
 - **Module order matters** in `src/main.ts`: `land` installs PvP protection that
   `duels` deliberately overrides, and `combat` loads after `duels` so duellists
   are exempt from combat tagging.
+- **Player stalls are stock-backed on purpose.** Players price what they sell
+  but never what the shop buys back. A player-set buy-back price would let
+  anyone list dirt at a fortune and sell it to the server forever; backing a
+  listing with real stock keeps the money moving between players instead of
+  being minted.
 - **Icons are ours, not vanilla's.** Menu buttons pointed at vanilla texture
   paths, which is a bet that each path exists and keeps its name; several did
   not and rendered as the magenta missing-texture square. The pack now ships

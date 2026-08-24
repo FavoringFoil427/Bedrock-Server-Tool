@@ -37,6 +37,29 @@ export class Player {
     this.inputPermissions = { setPermissionCategory() {} };
     this.messages = [];
     this.tags = new Set();
+    // A real slot array, so inventory maths is actually exercised.
+    this.slots = new Array(36).fill(undefined);
+    this.mainhand = undefined;
+    const slots = this.slots;
+    this.container = {
+      size: 36,
+      get emptySlotsCount() { return slots.filter((s) => s === undefined).length; },
+      getItem: (i) => slots[i],
+      setItem: (i, item) => { slots[i] = item; },
+      addItem: (item) => {
+        const free = slots.indexOf(undefined);
+        if (free !== -1) slots[free] = item;
+      },
+      clearAll: () => slots.fill(undefined),
+    };
+  }
+
+  /** Test helper: put a stack in the inventory and in hand. */
+  hold(typeId, amount) {
+    const stack = { typeId, amount };
+    this.slots[0] = stack;
+    this.mainhand = stack;
+    return stack;
   }
   sendMessage(m) { this.messages.push(m); }
   teleport() {}
@@ -52,10 +75,10 @@ export class Player {
   runCommand() { return { successCount: 1 }; }
   getComponent(id) {
     if (id === 'minecraft:health') return { currentValue: 20, effectiveMax: 20, resetToMaxValue() {} };
-    if (id === 'minecraft:inventory') {
-      return { container: { size: 36, emptySlotsCount: 36, getItem() {}, setItem() {}, addItem() {}, clearAll() {} } };
+    if (id === 'minecraft:inventory') return { container: this.container };
+    if (id === 'minecraft:equippable') {
+      return { getEquipment: (slot) => (slot === 'Mainhand' ? this.mainhand : undefined) };
     }
-    if (id === 'minecraft:equippable') return { getEquipment() { return undefined; } };
     return undefined;
   }
   getDynamicProperty() {}
