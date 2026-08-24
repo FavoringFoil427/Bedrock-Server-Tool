@@ -41,6 +41,11 @@ export interface ShopEntry {
   listedAt?: number;
 }
 
+/** Price of a single item, for comparing listings with different bundle sizes. */
+export function unitPrice(entry: ShopEntry): number {
+  return Math.ceil(entry.buyPrice / Math.max(1, entry.amount));
+}
+
 /** True when the listing is stocked and owned by a player. */
 export function isPlayerListing(entry: ShopEntry): entry is ShopEntry & { sellerId: string; stock: number } {
   return entry.sellerId !== undefined;
@@ -119,6 +124,9 @@ export function listForSale(
   const config = cfg();
   if (!config.playerListingsEnabled) return 'Player listings are disabled on this server.';
   if (price <= 0) return 'Set a price above zero.';
+  if (config.maxListingPrice > 0 && price > config.maxListingPrice) {
+    return `The most you can charge per bundle is ${money(config.maxListingPrice)}.`;
+  }
   if (bundleSize < 1 || bundles < 1) return 'Give a valid amount.';
 
   const held = player.getComponent('minecraft:equippable')?.getEquipment(EquipmentSlot.Mainhand);

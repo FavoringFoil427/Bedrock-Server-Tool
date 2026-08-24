@@ -511,6 +511,8 @@ async function openEconomy(player: Player): Promise<void> {
             { kind: 'toggle', label: 'Allow player listings', default: config.playerListingsEnabled },
             { kind: 'slider', label: 'Max listings per player', min: 1, max: 30, step: 1, default: config.maxListingsPerPlayer },
             { kind: 'slider', label: 'Market fee % (server cut)', min: 0, max: 50, step: 1, default: config.marketFeePercent },
+            { kind: 'text', label: 'Confirm purchases at or above (0 = never)', default: String(config.confirmPurchaseAbove) },
+            { kind: 'text', label: 'Max price a player may charge (0 = no limit)', default: String(config.maxListingPrice) },
           ]);
           if (!values) return;
           saveConfig((c) => {
@@ -521,6 +523,8 @@ async function openEconomy(player: Player): Promise<void> {
             c.playerListingsEnabled = Boolean(values[4]);
             c.maxListingsPerPlayer = Number(values[5]);
             c.marketFeePercent = Number(values[6]);
+            c.confirmPurchaseAbove = Math.max(0, Number.parseInt(String(values[7]), 10) || 0);
+            c.maxListingPrice = Math.max(0, Number.parseInt(String(values[8]), 10) || 0);
           });
           ok(player, 'Economy settings saved.');
         },

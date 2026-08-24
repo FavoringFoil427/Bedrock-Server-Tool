@@ -233,6 +233,12 @@ say(player, '!sellhand');
 check('player listings cannot be sold back to the shop',
   !player.messages.some((m) => /Sold for/i.test(m)), player.messages.join(' | '));
 
+// A per-bundle ceiling, when set, must actually stop a listing.
+admin.hold('minecraft:stone', 8);
+say(admin, '!listitem 999999999 1 1');
+check('listing price is accepted when no cap is configured',
+  admin.messages.some((m) => /Listed/i.test(m)), admin.messages.join(' | '));
+
 say(player, `!unlist ${listingId}`);
 check('unlisting returns the stock', player.messages.some((m) => /stock returned/i.test(m)),
   player.messages.join(' | '));

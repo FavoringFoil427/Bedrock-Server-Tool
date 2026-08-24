@@ -5,7 +5,7 @@ import { profileOf, profiles } from '../core/profiles';
 import { topRole } from '../core/permissions';
 import { C, err, formatDuration, formatVec, ok, tell } from '../core/util';
 import { balanceOf, money, richest, transfer } from '../modules/economy';
-import { ShopEntry, auctions, buy, categories, itemsIn, listForSale, listingsOf, sell, unlist } from '../modules/shop';
+import { ShopEntry, auctions, buy, categories, itemsIn, listForSale, listingsOf, sell, unitPrice, unlist } from '../modules/shop';
 import { warps, goTo, randomTeleport } from '../modules/teleport';
 import { SKILLS, levelOf, levelProgress } from '../modules/skills';
 import { describeRequirement, ladder, rankOf } from '../modules/ranks';
@@ -184,8 +184,8 @@ async function openShopCategory(player: Player, category: string): Promise<void>
     items: itemsIn(category),
     render: (entry) => ({
       text: entry.sellerId
-        ? `${C.white}${entry.amount}x ${entry.name}\n${C.dim}${money(entry.buyPrice)} - ${entry.stock} left, from ${entry.sellerName}`
-        : `${C.white}${entry.amount}x ${entry.name}\n${C.dim}${entry.buyPrice > 0 ? `Buy ${money(entry.buyPrice)}` : 'Not for sale'}${entry.sellPrice > 0 ? ` | Sell ${money(entry.sellPrice)}` : ''}`,
+        ? `${C.white}${entry.amount}x ${entry.name}\n${C.dim}${money(entry.buyPrice)} (${money(unitPrice(entry))} each) - ${entry.stock} left, ${entry.sellerName}`
+        : `${C.white}${entry.amount}x ${entry.name}\n${C.dim}${entry.buyPrice > 0 ? `Buy ${money(entry.buyPrice)} (${money(unitPrice(entry))} each)` : 'Not for sale'}${entry.sellPrice > 0 ? ` | Sell ${money(entry.sellPrice)}` : ''}`,
     }),
     onPick: (entry) => openShopItem(player, entry, category),
     back: () => openShopCategories(player),
@@ -193,14 +193,41 @@ async function openShopCategory(player: Player, category: string): Promise<void>
 }
 
 async function openShopItem(player: Player, entry: ShopEntry, category: string): Promise<void> {
+  /*
+   * Anyone can name their own price, so a listing may be a trap for a misclick.
+   * Anything above the configured threshold has to be confirmed, with the cost
+   * spelled out, before money moves.
+   */
+  const purchase = async (bundles: number): Promise<void> => {
+    const cost = entry.buyPrice * bundles;
+    const threshold = cfg().confirmPurchaseAbove;
+    if (threshold > 0 && cost >= threshold) {
+      const agreed = await confirm(
+        player,
+        'Confirm purchase',
+        [
+          `Buy ${C.white}${entry.amount * bundles}x ${entry.name}${C.reset}?`,
+          '',
+          `${C.dim}Total: ${C.good}${money(cost)}`,
+          `${C.dim}Per item: ${C.white}${money(unitPrice(entry))}`,
+          entry.sellerName ? `${C.dim}Seller: ${C.white}${entry.sellerName}` : '',
+          `${C.dim}Balance after: ${C.white}${money(Math.max(0, balanceOf(profileOf(player)) - cost))}`,
+        ].filter(Boolean).join('\n'),
+        `${C.good}Buy`,
+      );
+      if (!agreed) return;
+    }
+    const problem = buy(player, entry, bundles);
+    if (problem) err(player, problem);
+    else ok(player, `Bought ${entry.amount * bundles}x ${entry.name} for ${money(cost)}.`);
+  };
+
   const buttons = [];
   if (entry.buyPrice > 0) {
     buttons.push({
       text: `${C.good}Buy ${entry.amount}x - ${money(entry.buyPrice)}`,
       onClick: async () => {
-        const problem = buy(player, entry, 1);
-        if (problem) err(player, problem);
-        else ok(player, `Bought ${entry.amount}x ${entry.name}.`);
+        await purchase(1);
         await openShopItem(player, entry, category);
       },
     });
@@ -210,9 +237,7 @@ async function openShopItem(player: Player, entry: ShopEntry, category: string):
         const answer = await askText(player, `Buy ${entry.name}`, 'How many bundles?', '1', '1');
         const bundles = Number.parseInt(answer ?? '', 10);
         if (!Number.isFinite(bundles) || bundles < 1) return err(player, 'Give a valid number.');
-        const problem = buy(player, entry, bundles);
-        if (problem) err(player, problem);
-        else ok(player, `Bought ${entry.amount * bundles}x ${entry.name}.`);
+        await purchase(bundles);
       },
     });
   }
@@ -233,8 +258,10 @@ async function openShopItem(player: Player, entry: ShopEntry, category: string):
     body: [
       `${C.dim}Item: ${C.white}${prettyItemName(entry.typeId)}`,
       `${C.dim}Bundle size: ${C.white}${entry.amount}`,
+      `${C.dim}Price per item: ${C.white}${money(unitPrice(entry))}`,
+      entry.sellerName ? `${C.dim}Seller: ${C.white}${entry.sellerName} ${C.dim}(${entry.stock} bundles left)` : '',
       `${C.dim}Your balance: ${C.good}${money(balanceOf(profileOf(player)))}`,
-    ].join('\n'),
+    ].filter(Boolean).join('\n'),
     buttons,
     back: () => openShopCategory(player, category),
   });

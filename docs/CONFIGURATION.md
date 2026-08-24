@@ -16,6 +16,8 @@ Every setting lives in the world and is edited in-game through
 | `playerListingsEnabled` | `boolean` | `true` | Economy Player stalls: anyone may list their own stock at their own price. |
 | `maxListingsPerPlayer` | `number` | `5` |  |
 | `marketFeePercent` | `number` | `0` | Percentage the server takes from each player sale, as an economy sink. |
+| `confirmPurchaseAbove` | `number` | `1000` | Purchases at or above this ask for confirmation first. 0 disables. |
+| `maxListingPrice` | `number` | `0` | Ceiling on what a player may charge per bundle. 0 means no limit. |
 | `currencySymbol` | `string` | `'$'` |  |
 | `currencyName` | `string` | `'Coins'` |  |
 | `startingBalance` | `number` | `100` |  |

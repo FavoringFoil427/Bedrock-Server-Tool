@@ -15,6 +15,10 @@ export interface Config {
   maxListingsPerPlayer: number;
   /** Percentage the server takes from each player sale, as an economy sink. */
   marketFeePercent: number;
+  /** Purchases at or above this ask for confirmation first. 0 disables. */
+  confirmPurchaseAbove: number;
+  /** Ceiling on what a player may charge per bundle. 0 means no limit. */
+  maxListingPrice: number;
 
   currencySymbol: string;
   currencyName: string;
@@ -92,6 +96,8 @@ export function defaultConfig(): Config {
     playerListingsEnabled: true,
     maxListingsPerPlayer: 5,
     marketFeePercent: 0,
+    confirmPurchaseAbove: 1000,
+    maxListingPrice: 0,
 
     currencySymbol: '$',
     currencyName: 'Coins',
