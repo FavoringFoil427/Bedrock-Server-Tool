@@ -14,6 +14,7 @@ import {
 import { Table } from '../core/storage';
 import { t } from '../core/i18n';
 import { C, distance, err, formatDuration, formatVec, ok, tell } from '../core/util';
+import { sfx } from '../core/sound';
 import { can } from '../core/permissions';
 import { charge, money } from './economy';
 import { blockedByCombat } from './combat';
@@ -52,6 +53,7 @@ export function goTo(player: Player, target: StoredLocation): boolean {
     const dimension = world.getDimension(target.dimension);
     rememberBack(player);
     player.teleport({ x: target.x, y: target.y, z: target.z }, { dimension });
+    sfx(player, 'travel');
     return true;
   } catch (error) {
     console.warn(`[AdminSuite] teleport failed: ${error}`);

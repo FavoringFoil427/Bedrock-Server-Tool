@@ -39,6 +39,8 @@ export class Player {
       setPermissionCategory: (category, enabled) => { this.lockedInput.set(category, enabled); },
     };
     this.messages = [];
+    /** Sound ids played at this player, in order. */
+    this.sounds = [];
     this.tags = new Set();
     // A real slot array, so inventory maths is actually exercised.
     this.slots = new Array(36).fill(undefined);
@@ -68,6 +70,7 @@ export class Player {
     return stack;
   }
   sendMessage(m) { this.messages.push(m); }
+  playSound(id) { this.sounds.push(id); }
   teleport() {}
   addExperience(amount) { this.experience += amount; return this.experience; }
   addLevels(amount) { this.experience += amount * 10; return this.experience; }

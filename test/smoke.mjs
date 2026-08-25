@@ -740,6 +740,159 @@ for (const file of await collectJson(path.join(rpDir, 'entity'))) {
 }
 
 /*
+ * Copy conventions. Messages are the part of the addon a player reads most,
+ * and drift between them shows up as sloppiness: every one starts with a
+ * capital and ends a sentence.
+ */
+{
+  const offenders = [];
+  const files = [
+    'src/menus/admin.ts', 'src/menus/member.ts',
+    ...(await readdir(path.join(ROOT, 'src', 'modules'))).map((f) => `src/modules/${f}`),
+  ];
+  for (const file of files) {
+    const source = await readFile(path.join(ROOT, file), 'utf8');
+    // Messages reach the player two ways: passed straight to err/ok, or
+    // returned as a problem string for a caller to report. Both are prose,
+    // so both are held to the same rule. A returned literal only counts as
+    // prose when it has a space in it, which leaves ids and keys alone.
+    const spoken = [
+      ...[...source.matchAll(/\b(?:err|ok)\([A-Za-z]+, '([^']+)'/g)].map((m) => m[1]),
+      ...[...source.matchAll(/\breturn '([^']*\s[^']*)'/g)].map((m) => m[1]),
+    ];
+    for (const text of spoken) {
+      if (!/^[A-Z]/.test(text)) offenders.push(`${file}: lowercase "${text}"`);
+      else if (!/[.!?:>]$/.test(text)) offenders.push(`${file}: unterminated "${text}"`);
+    }
+  }
+  check('every message is a properly written sentence', offenders.length === 0,
+    offenders.slice(0, 4).join(' | '));
+}
+
+/*
+ * Search. Lists that grow with the server cannot be worked by paging alone,
+ * so the long ones filter - and a search that matches nothing has to say so
+ * rather than looking like the list emptied itself.
+ */
+{
+  // Enough players that the list spills past one page.
+  for (let i = 0; i < 24; i++) {
+    const extra = new Player(i === 7 ? 'Findme' : `Filler${i}`, `p-bulk-${i}`);
+    __test.players.push(extra);
+    world.afterEvents.playerSpawn.emit({ player: extra, initialSpawn: true });
+  }
+  for (const t of system.timeouts.splice(0)) t.cb();
+  __test.flush();
+
+  __ui.reset();
+  __ui.click(/Players/);
+  await settle();
+  world.beforeEvents.chatSend.emit({ sender: admin, message: '!suite', cancel: false });
+  await settle();
+  const unfiltered = __ui.lastButtons();
+  check('a long list offers a search button',
+    unfiltered.some((b) => /Search/.test(b)), unfiltered.slice(0, 4).join(' | '));
+  check('a long list is paged rather than endless',
+    unfiltered.some((b) => /Next page/.test(b)), `${unfiltered.length} buttons`);
+
+  __ui.reset();
+  __ui.click(/Players/);
+  __ui.click(/Search/);
+  __ui.submit('findme');
+  await settle();
+  world.beforeEvents.chatSend.emit({ sender: admin, message: '!suite', cancel: false });
+  await settle();
+  const filtered = __ui.lastButtons();
+  check('searching narrows the list to the match',
+    filtered.some((b) => /Findme/.test(b)) && !filtered.some((b) => /Filler1\b/.test(b)),
+    filtered.join(' | ').slice(0, 120));
+  check('a search can be cleared from the list itself',
+    filtered.some((b) => /show all/i.test(b)), filtered.slice(0, 3).join(' | '));
+
+  __ui.reset();
+  __ui.click(/Players/);
+  __ui.click(/Search/);
+  __ui.submit('zzzznobody');
+  await settle();
+  world.beforeEvents.chatSend.emit({ sender: admin, message: '!suite', cancel: false });
+  await settle();
+  check('a search with no matches says so', /Nothing matches/i.test(__ui.lastBody()),
+    JSON.stringify(__ui.lastBody()));
+}
+
+/*
+ * Audible feedback. A menu that answers silently reads as broken, but two
+ * cues at once reads as a glitch - an arrival plays its own sound and the
+ * caller then confirms it - so only the first cue in a tick is allowed out.
+ */
+{
+  const ear = new Player('Ear', 'p-ear');
+  __test.players.push(ear);
+  world.afterEvents.playerSpawn.emit({ player: ear, initialSpawn: true });
+  for (const t of system.timeouts.splice(0)) t.cb();
+  __test.flush();
+
+  const cueFrom = (message) => {
+    system.currentTick++;
+    ear.sounds.length = 0;
+    world.beforeEvents.chatSend.emit({ sender: ear, message, cancel: false });
+    __test.flush();
+    return ear.sounds;
+  };
+
+  // A query only reports; an action confirms. Only the latter earns a cue.
+  check('a plain query stays silent', cueFrom('!balance').length === 0);
+
+  const success = [...cueFrom('!sethome soundcheck')];
+  check('a completed action makes a sound', success.length === 1, success.join(', '));
+
+  const failure = [...cueFrom('!warp definitelynotawarp')];
+  check('a failed command makes a sound', failure.length === 1, failure.join(', '));
+  check('failure does not sound like success', success[0] !== failure[0],
+    `both played ${success[0]}`);
+
+  // An arrival plays its own cue and the caller then confirms it in chat.
+  system.currentTick++;
+  ear.sounds.length = 0;
+  world.beforeEvents.chatSend.emit({ sender: ear, message: '!spawn', cancel: false });
+  __test.flush();
+  for (let i = 0; i < 8; i++) { for (const t of [...system.intervals]) t.cb(); __test.flush(); }
+  check('an arrival and its confirmation do not double up', ear.sounds.length <= 1,
+    `${ear.sounds.length} cues: ${ear.sounds.join(', ')}`);
+}
+
+/*
+ * Every list screen must say why it is empty. A `paged` list with no items
+ * renders as a form containing nothing but a Back button, which reads as
+ * broken rather than empty - a real report from a real server owner.
+ */
+{
+  const listFiles = [
+    'src/menus/admin.ts', 'src/menus/member.ts',
+    ...(await readdir(path.join(ROOT, 'src', 'modules'))).map((f) => `src/modules/${f}`),
+  ];
+  const missing = [];
+  for (const file of listFiles) {
+    const source = await readFile(path.join(ROOT, file), 'utf8');
+    for (let at = source.indexOf('paged('); at !== -1; at = source.indexOf('paged(', at + 1)) {
+      const open = source.indexOf('{', at);
+      if (open === -1) continue;
+      // Walk to the matching brace so the scan covers exactly this call.
+      let depth = 0, end = open;
+      for (; end < source.length; end++) {
+        if (source[end] === '{') depth++;
+        else if (source[end] === '}' && --depth === 0) break;
+      }
+      const options = source.slice(open, end);
+      if (/\bempty:/.test(options)) continue;
+      const title = /title:\s*(.+)/.exec(options)?.[1] ?? '?';
+      missing.push(`${file}: ${title.trim().slice(0, 60)}`);
+    }
+  }
+  check('every list screen explains itself when empty', missing.length === 0, missing.join(' | '));
+}
+
+/*
  * Menu icons. Pointing at a vanilla texture path is a bet that the path exists
  * and keeps its name; several did not, and rendered as the magenta
  * missing-texture square. Every icon must therefore be one this pack ships.

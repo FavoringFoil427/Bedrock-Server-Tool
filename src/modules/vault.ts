@@ -71,6 +71,9 @@ async function openVault(player: Player, ownerId: string, ownerName: string, rea
 
   await paged(player, {
     title: `${C.title}${readOnly ? `${ownerName}'s vault` : 'Your vault'}`,
+    empty: readOnly
+      ? `${C.dim}${ownerName}'s vault is empty.`
+      : `${C.dim}Your vault is empty. Deposit something you are holding to fill it.`,
     body: `${C.dim}${items.length}/${SLOT_LIMIT} slots used`,
     items: items.map((item, index) => ({ item, index })),
     render: ({ item }) => ({ text: `${C.white}${item.amount}x ${prettyItemName(item.typeId)}` }),

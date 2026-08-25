@@ -347,7 +347,7 @@ export function install(): void {
       if (bundles < 1) return err(player, `You need at least ${entry.amount} of them.`);
       const problem = sell(player, entry, bundles);
       if (problem) return err(player, problem);
-      ok(player, `Sold for ${money(entry.sellPrice * bundles)}.`);
+      ok(player, `Sold for ${money(entry.sellPrice * bundles)}.`, 'trade');
     },
   });
 
@@ -451,7 +451,7 @@ export function install(): void {
         if (!lot) return err(player, 'No listing with that id.');
         const problem = buyAuctionLot(player, lot);
         if (problem) return err(player, problem);
-        return ok(player, `Bought ${lot.amount}x ${prettyItemName(lot.typeId)}.`);
+        return ok(player, `Bought ${lot.amount}x ${prettyItemName(lot.typeId)}.`, 'trade');
       }
 
       if (action === 'cancel') {
@@ -485,7 +485,7 @@ export function install(): void {
       }
       if (earned === 0) return err(player, 'You have nothing the shop buys.');
       addMoney(profileOf(player), earned);
-      ok(player, `Sold everything for ${money(earned)}. Balance: ${money(balanceOf(profileOf(player)))}`);
+      ok(player, `Sold everything for ${money(earned)}. Balance: ${money(balanceOf(profileOf(player)))}`, 'trade');
     },
   });
 
@@ -497,7 +497,7 @@ export function install(): void {
     args: [{ name: 'amount', type: 'int' }],
     handler: ({ player, args }) => {
       const amount = Number.parseInt(args[0] ?? '', 10);
-      if (!Number.isFinite(amount)) return err(player, 'Give a number.');
+      if (!Number.isFinite(amount)) return err(player, 'Give a valid number.');
       let count = 0;
       for (const online of world.getAllPlayers()) {
         const profile = profileByName(online.name);

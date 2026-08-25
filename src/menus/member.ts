@@ -161,7 +161,7 @@ export async function openShopCategories(player: Player): Promise<void> {
 /** Lists whatever the player is holding, at a price they choose. */
 async function openSellForm(player: Player): Promise<void> {
   const held = player.getComponent('minecraft:equippable')?.getEquipment(EquipmentSlot.Mainhand);
-  if (!held) return err(player, 'Hold the item you want to sell, then try again.');
+  if (!held) return err(player, 'Hold the item you want to sell.');
 
   const known = categories().filter((c) => c !== 'Player Stalls');
   const options = ['Player Stalls', ...known];
@@ -186,6 +186,7 @@ async function openMyListings(player: Player): Promise<void> {
   const mine = listingsOf(player.id);
   await paged(player, {
     title: `${C.title}My listings`,
+    empty: `${C.dim}You have nothing listed for sale.`,
     body: mine.length === 0 ? `${C.dim}You have nothing listed.` : `${C.dim}Tap a listing to take it down.`,
     items: mine,
     render: (entry) => ({
@@ -205,6 +206,8 @@ async function openMyListings(player: Player): Promise<void> {
 async function openShopCategory(player: Player, category: string): Promise<void> {
   await paged(player, {
     title: `${C.title}${category}`,
+    search: { label: 'Item name contains', match: (e, q) => prettyItemName(e.typeId).toLowerCase().includes(q) },
+    empty: `${C.dim}Nothing in this category yet.`,
     body: `${C.dim}Balance: ${C.good}${money(balanceOf(profileOf(player)))}`,
     items: itemsIn(category),
     render: (entry) => ({
@@ -296,6 +299,8 @@ async function openAuction(player: Player): Promise<void> {
   const lots = auctions.values();
   await paged(player, {
     title: `${C.title}Auction House`,
+    search: { label: 'Item name contains', match: (l, q) => prettyItemName(l.typeId).toLowerCase().includes(q) },
+    empty: `${C.dim}Nothing is up for auction right now.`,
     body: `${C.dim}Balance: ${C.good}${money(balanceOf(profileOf(player)))}`,
     items: lots,
     render: (lot) => ({
@@ -416,6 +421,8 @@ async function openPlayerWarps(player: Player): Promise<void> {
 async function openBrowseWarps(player: Player): Promise<void> {
   await paged(player, {
     title: `${C.title}Player Warps`,
+    search: { label: 'Warp or owner contains', match: (w, q) => w.name.toLowerCase().includes(q) || w.ownerName.toLowerCase().includes(q) },
+    empty: `${C.dim}No player warps have been published yet.`,
     body: `${C.dim}Sorted by how often they are visited.`,
     items: popularWarps(),
     render: (warp) => ({
@@ -442,6 +449,7 @@ async function openPublishWarp(player: Player): Promise<void> {
 async function openMyWarps(player: Player): Promise<void> {
   await paged(player, {
     title: `${C.title}My Player Warps`,
+    empty: `${C.dim}You have not published a warp yet.`,
     items: warpsOwnedBy(player.id),
     render: (warp) => ({
       text: `${C.accent}${warp.name}\n${C.dim}${formatVec(warp)} - ${warp.visits} visits`,
@@ -517,7 +525,7 @@ async function openTeleport(player: Player): Promise<void> {
         onClick: async () => {
           tell(player, `${C.dim}Finding somewhere to drop you...`);
           if (await randomTeleport(player)) ok(player, 'Teleported to the wild.');
-          else err(player, 'Could not find a safe spot.');
+          else err(player, 'Could not find a safe spot. Try again.');
         },
       },
       {
@@ -545,6 +553,7 @@ async function openTeleportPicker(player: Player, others: Player[], here: boolea
   if (others.length === 0) return err(player, 'Nobody else is online.');
   await paged(player, {
     title: here ? `${C.title}Ask someone here` : `${C.title}Teleport to someone`,
+    empty: `${C.dim}Nobody else is online.`,
     items: others,
     render: (other) => ({ text: `${C.accent}${other.name}` }),
     onPick: async (other: Player) => {
@@ -608,7 +617,7 @@ async function openLand(player: Player): Promise<void> {
         onClick: async () => {
           tell(player, `${C.dim}Finding somewhere to drop you...`);
           if (await randomTeleport(player)) ok(player, 'Teleported to the wild.');
-          else err(player, 'Could not find a safe spot.');
+          else err(player, 'Could not find a safe spot. Try again.');
         },
       },
     ],
@@ -663,6 +672,7 @@ async function openCosmetics(player: Player): Promise<void> {
   const profile = profileOf(player);
   await paged(player, {
     title: `${C.title}Cosmetics`,
+    empty: `${C.dim}No cosmetics are available.`,
     body: `${C.dim}Balance: ${C.good}${money(balanceOf(profile))}`,
     items: [
       ...(profile.cosmeticEquipped ? [undefined] : []),
@@ -700,6 +710,7 @@ async function openCosmetics(player: Player): Promise<void> {
 async function openKits(player: Player): Promise<void> {
   await paged(player, {
     title: `${C.title}Kits`,
+    empty: `${C.dim}No kits are available right now.`,
     items: kits.values(),
     render: (kit) => ({
       text: `${C.accent}${kit.name}\n${C.dim}${kit.cooldown === 0 ? 'One time' : `Every ${formatDuration(kit.cooldown * 1000)}`}`,
@@ -776,6 +787,7 @@ async function openJobs(player: Player): Promise<void> {
   const profile = profileOf(player);
   await paged(player, {
     title: `${C.title}Jobs`,
+    empty: `${C.dim}No jobs are available.`,
     body: jobOf(profile) ? `${C.dim}Current: ${C.white}${jobOf(profile)?.name}` : `${C.dim}You have no job.`,
     items: jobs.values(),
     render: (job) => ({
@@ -794,6 +806,7 @@ async function openJobs(player: Player): Promise<void> {
 async function openQuests(player: Player): Promise<void> {
   await paged(player, {
     title: `${C.title}Quests`,
+    empty: `${C.dim}No quests are available right now.`,
     items: quests.values(),
     render: (quest) => {
       const have = Math.min(progressFor(player, quest), quest.amount);

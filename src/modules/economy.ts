@@ -92,7 +92,7 @@ export function install(): void {
       if (!transfer(profile, target, amount)) {
         return err(player, t('economy.insufficient', { symbol: cfg().currencySymbol, amount: formatNumber(amount) }));
       }
-      ok(player, t('economy.paid', { symbol: cfg().currencySymbol, amount: formatNumber(amount), player: target.name }));
+      ok(player, t('economy.paid', { symbol: cfg().currencySymbol, amount: formatNumber(amount), player: target.name }), 'trade');
 
       const online = onlinePlayer(target);
       if (online) {

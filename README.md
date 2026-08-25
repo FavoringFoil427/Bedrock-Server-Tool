@@ -53,7 +53,7 @@ the starter kit.
 | **Land claims** | Rectangular claims with trust lists, container and PvP flags, chunk-indexed protection |
 | **Teleporting** | Three tiers of destination — private homes, staff-curated server warps, and public player warps anyone can publish — plus `!tpa`/`!tpahere` with warmup, random teleport, `!back` and spawn |
 | **Progression** | Rank ladder (automatic and purchasable), five passive skills with milestone perks, jobs that pay for ordinary play, quests, and reward XP that doubles as spendable enchanting levels |
-| **Quality of life** | Handheld offhand torch with dynamic lighting, menu items that survive death, teleport requests from the member menu |
+| **Quality of life** | Handheld offhand torch with dynamic lighting, menu items that survive death, teleport requests from the member menu, searchable lists, and sound on every action |
 | **Rewards** | Fully editable kits (contents, cooldown, price, access), an optional starter kit on first join pointed at any kit, daily reward streaks, redeemable codes |
 | **Social** | Clans with a shared bank and clan chat, wagered duels in a bounded ring |
 | **Display** | Custom chat format, custom nametags, scoreboard sidebar, per-player action bar, holograms with live leaderboards |
@@ -252,6 +252,16 @@ A few decisions worth knowing:
   vanilla item art uses, and doubled to 32x32 so the pixel grid stays crisp
   rather than resampled. A typo in art that dense is invisible until it ships,
   so the generator fails the build on a wrong-length row or an unknown colour.
+- **An empty list has to say it is empty.** A list screen with no items renders
+  as a form containing nothing but a Back button, which reads as broken rather
+  than empty - reported by a server owner who assumed warps were not working.
+  Every list now explains itself, and a test fails the build if a new one does
+  not.
+- **Silence reads as failure.** A menu that answers without a sound feels
+  broken even when it worked, so outcomes carry a cue. Only the first cue in a
+  tick is played: an arrival makes its own sound and the caller then confirms
+  it in chat, and two at once reads as a glitch rather than as feedback. That
+  is handled centrally, so call sites never have to coordinate.
 - **The sidebar is world-global.** Bedrock has no per-viewer scoreboard, so
   sidebar rows carry only server-wide values and each player's own figures go to
   their action bar instead.

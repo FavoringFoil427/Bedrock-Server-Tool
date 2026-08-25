@@ -53,6 +53,8 @@ async function openPlayers(player: Player): Promise<void> {
   const online = world.getAllPlayers();
   await paged(player, {
     title: `${C.title}Players`,
+    search: { label: 'Player name contains', match: (p, q) => p.name.toLowerCase().includes(q) },
+    empty: `${C.dim}No players are known yet. They appear here after their first join.`,
     body: `${C.dim}${online.length} online, ${profiles.size} known`,
     items: profiles.values().sort((a, b) => a.name.localeCompare(b.name)),
     render: (profile) => {
@@ -217,6 +219,7 @@ async function openInventory(admin: Player, target: Player): Promise<void> {
 
   await paged(admin, {
     title: `${C.title}${target.name}'s inventory`,
+    empty: `${C.dim}Their inventory is empty.`,
     body: `${C.dim}${slots.length} stacks - ${container.emptySlotsCount} empty slots`,
     items: slots,
     render: (entry) => ({ text: `${C.white}${entry.label}\n${C.dim}slot ${entry.slot}` }),
@@ -280,6 +283,7 @@ async function openModeration(player: Player): Promise<void> {
         onClick: () =>
           paged(player, {
             title: `${C.title}Reports`,
+            empty: `${C.dim}No reports waiting. Players raise one with !report.`,
             items: open,
             render: (report) => ({
               text: `${C.warn}${report.target}\n${C.dim}by ${report.reporter} - ${report.reason}`,
@@ -299,6 +303,8 @@ async function openModeration(player: Player): Promise<void> {
         onClick: () =>
           paged(player, {
             title: `${C.title}Bans`,
+            search: { label: 'Player name contains', match: (b, q) => b.name.toLowerCase().includes(q) },
+            empty: `${C.dim}Nobody is banned.`,
             items: active,
             render: (record) => ({
               text: `${C.bad}${record.name}\n${C.dim}${record.until === undefined ? 'permanent' : formatDuration(record.until - Date.now())} - ${record.reason}`,
@@ -334,6 +340,7 @@ async function openKits(admin: Player): Promise<void> {
   const config = cfg();
   await paged(admin, {
     title: `${C.title}Kits`,
+    empty: `${C.dim}No kits yet. Create one and it appears here.`,
     body: [
       `${C.dim}Starter kit: ${config.starterKitEnabled ? `${C.good}${config.starterKitId}` : `${C.bad}off`}`,
       `${C.dim}Tap a kit to edit it.`,
@@ -471,6 +478,7 @@ async function openKit(admin: Player, kit: Kit): Promise<void> {
 async function openKitItems(admin: Player, kit: Kit): Promise<void> {
   await paged(admin, {
     title: `${C.title}${kit.name} contents`,
+    empty: `${C.dim}This kit is empty. Add the item you are holding.`,
     body: kit.reward.items.length === 0
       ? `${C.dim}Empty. Hold an item and use "Add the item you are holding".`
       : `${C.dim}Tap an item to change the amount or remove it.`,
@@ -540,6 +548,8 @@ async function openWorld(player: Player): Promise<void> {
         onClick: () =>
           paged(player, {
             title: `${C.title}Claims`,
+            search: { label: 'Owner name contains', match: (c, q) => c.ownerName.toLowerCase().includes(q) },
+            empty: `${C.dim}Nobody has claimed any land yet.`,
             items: claims.values(),
             render: (claim) => ({
               text: `${C.accent}${claim.name}\n${C.dim}${claim.minX},${claim.minZ} to ${claim.maxX},${claim.maxZ}`,
@@ -617,6 +627,8 @@ async function openEconomy(player: Player): Promise<void> {
         onClick: () =>
           paged(player, {
             title: `${C.title}Shop items`,
+            search: { label: 'Item name contains', match: (e, q) => prettyItemName(e.typeId).toLowerCase().includes(q) },
+            empty: `${C.dim}No server listings. Add the item you are holding to stock the shop.`,
             body: shopItems.size === 0
               ? `${C.dim}The shop is empty. Hold an item and use "Add the item you are holding".`
               : `${C.dim}Tap an item to change its prices or remove it.`,
@@ -650,6 +662,8 @@ async function openEconomy(player: Player): Promise<void> {
         onClick: () =>
           paged(player, {
             title: `${C.title}Player listings`,
+            search: { label: 'Item or seller contains', match: (e, q) => prettyItemName(e.typeId).toLowerCase().includes(q) || (e.sellerName ?? '').toLowerCase().includes(q) },
+            empty: `${C.dim}No player has listed anything for sale.`,
             body: `${C.dim}Removing a listing returns the stock to whoever listed it.`,
             items: shopItems.values().filter((entry) => entry.sellerId !== undefined),
             render: (entry) => ({
@@ -707,7 +721,7 @@ async function openEconomy(player: Player): Promise<void> {
  */
 async function addHeldItemToShop(player: Player): Promise<void> {
   const held = player.getComponent('minecraft:equippable')?.getEquipment(EquipmentSlot.Mainhand);
-  if (!held) return err(player, 'Hold the item you want to sell, then try again.');
+  if (!held) return err(player, 'Hold the item you want to stock the shop with.');
 
   const existing = shopItems.get(held.typeId.replace('minecraft:', ''));
   const known = [...new Set(shopItems.values().map((entry) => entry.category))];
@@ -965,6 +979,7 @@ async function openContent(player: Player): Promise<void> {
         onClick: () =>
           paged(player, {
             title: `${C.title}Holograms`,
+            empty: `${C.dim}No holograms. Create one with !holo create <text>.`,
             items: holograms.values(),
             render: (hologram) => ({
               text: `${C.accent}${hologram.board ?? hologram.lines[0] ?? 'hologram'}\n${C.dim}${Math.floor(hologram.x)}, ${Math.floor(hologram.y)}, ${Math.floor(hologram.z)}`,
@@ -987,6 +1002,7 @@ async function openContent(player: Player): Promise<void> {
         onClick: () =>
           paged(player, {
             title: `${C.title}Player warps`,
+            empty: `${C.dim}No player has published a warp yet.`,
             body: `${C.dim}Published by players. Removing one tells its owner.`,
             items: popularWarps(),
             render: (warp) => ({
@@ -1016,6 +1032,7 @@ async function openContent(player: Player): Promise<void> {
         onClick: () =>
           paged(player, {
             title: `${C.title}Ranks`,
+            empty: `${C.dim}No ranks are configured.`,
             items: ladder(),
             render: (rank) => ({ text: `${rank.color}${rank.name}\n${C.dim}order ${rank.order}` }),
             onPick: async (rank) => {
@@ -1129,6 +1146,7 @@ async function openSettings(player: Player): Promise<void> {
             { kind: 'toggle', label: 'Cosmetics', default: config.cosmeticsEnabled },
             { kind: 'toggle', label: 'Reward XP gives enchanting levels', default: config.rewardsGiveVanillaXp },
             { kind: 'toggle', label: 'Handheld torch dynamic lighting', default: config.dynamicLightEnabled },
+            { kind: 'toggle', label: 'Menu and action sounds', default: config.soundsEnabled },
           ]);
           if (!values) return;
           saveConfig((c) => {
@@ -1150,6 +1168,7 @@ async function openSettings(player: Player): Promise<void> {
             c.cosmeticsEnabled = Boolean(values[15]);
             c.rewardsGiveVanillaXp = Boolean(values[16]);
             c.dynamicLightEnabled = Boolean(values[17]);
+            c.soundsEnabled = Boolean(values[18]);
           });
           ok(player, 'Features updated.');
         },

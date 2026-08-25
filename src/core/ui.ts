@@ -8,6 +8,7 @@ import {
   ModalFormResponse,
 } from '@minecraft/server-ui';
 import { sleep, C } from './util';
+import { sfx } from './sound';
 
 /**
  * Form helpers.
@@ -66,6 +67,7 @@ export async function menu(player: Player, options: MenuOptions): Promise<void> 
     else form.button(button.text);
   }
 
+  sfx(player, 'open');
   const response = await showWithRetry<ActionFormResponse>(() => form.show(player));
   if (!response || response.selection === undefined) return;
   const chosen = buttons[response.selection];
@@ -169,6 +171,13 @@ export interface PagedOptions<T> {
   actions?: MenuButton[];
   /** Shown in place of the list when there is nothing to list. */
   empty?: string;
+  /**
+   * Makes the list searchable. Lists that grow with the server - players,
+   * bans, listings - are unusable by paging alone once they are long.
+   */
+  search?: { label?: string; match: (item: T, needle: string) => boolean };
+  /** Active search text. Set by the search button, not by callers. */
+  query?: string;
 }
 
 /**
@@ -176,12 +185,31 @@ export interface PagedOptions<T> {
  * dozen buttons, so lists are chunked with next/previous controls.
  */
 export async function paged<T>(player: Player, options: PagedOptions<T>): Promise<void> {
+  const query = options.query ?? '';
+  const needle = query.trim().toLowerCase();
+  const items = options.search && needle
+    ? options.items.filter((item) => options.search!.match(item, needle))
+    : options.items;
+
   const page = options.page ?? 0;
-  const pages = Math.max(1, Math.ceil(options.items.length / PAGE_SIZE));
+  const pages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const current = Math.min(page, pages - 1);
-  const slice = options.items.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE);
+  const slice = items.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE);
 
   const buttons: MenuButton[] = current === 0 ? [...(options.actions ?? [])] : [];
+
+  // Offered from the first page only, alongside any actions the screen adds.
+  if (options.search && current === 0) {
+    buttons.push({
+      text: query ? `${C.warn}Showing "${query}" - show all` : `${C.accent}Search`,
+      icon: 'textures/ui/adm_explore',
+      onClick: async () => {
+        if (query) return paged(player, { ...options, query: '', page: 0 });
+        const text = await askText(player, 'Search', options.search?.label ?? 'Name contains');
+        return paged(player, { ...options, query: text ?? '', page: 0 });
+      },
+    });
+  }
   for (const item of slice) {
     const rendered = options.render(item);
     buttons.push({
@@ -206,8 +234,11 @@ export async function paged<T>(player: Player, options: PagedOptions<T>): Promis
 
   const header = pages > 1 ? `${C.dim}Page ${current + 1}/${pages}` : '';
   // An empty list otherwise renders as a form with nothing but a Back button,
-  // which reads as broken rather than empty.
-  const empty = options.items.length === 0 ? (options.empty ?? '') : '';
+  // which reads as broken rather than empty. A search that matched nothing
+  // needs saying too, or it looks like the list itself emptied.
+  const empty = items.length > 0 ? ''
+    : needle ? `${C.dim}Nothing matches "${query}".`
+    : (options.empty ?? '');
   const body = [options.body, empty, header].filter(Boolean).join('\n');
 
   await menu(player, {

@@ -3,6 +3,7 @@ import { register } from '../core/commands';
 import { Table } from '../core/storage';
 import { Profile, onlinePlayer, profileByName, profileOf, profiles } from '../core/profiles';
 import { C, broadcast, err, formatDuration, ok, tell } from '../core/util';
+import { sfx } from '../core/sound';
 import { balanceOf, charge, money } from './economy';
 
 /**
@@ -114,6 +115,7 @@ export function checkAndAnnounce(player: Player): void {
   const promoted = checkPromotion(profile);
   if (promoted) {
     broadcast(`${C.gold}${player.name} ${C.reset}reached ${promoted.color}${promoted.name}${C.reset}!`);
+    sfx(player, 'triumph');
   }
 }
 

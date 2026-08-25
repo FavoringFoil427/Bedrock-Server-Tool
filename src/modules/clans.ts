@@ -225,7 +225,7 @@ export function install(): void {
         }
 
         default:
-          err(player, 'Use: create, invite, join, leave, disband, bank, chat, info, list');
+          err(player, 'Use: create, invite, join, leave, disband, bank, chat, info, list.');
       }
     },
   });

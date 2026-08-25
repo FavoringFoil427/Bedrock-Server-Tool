@@ -1,4 +1,5 @@
 import { Player, world, system, Vector3, Dimension } from '@minecraft/server';
+import { sfx, Sfx } from './sound';
 
 /** Colour codes used across every menu so the UI reads as one system. */
 export const C = {
@@ -19,12 +20,19 @@ export function tell(player: Player, message: string): void {
   player.sendMessage(PREFIX + message);
 }
 
-export function ok(player: Player, message: string): void {
+/**
+ * Confirms an action. `cue` picks the sound: a more specific one where the
+ * outcome deserves it, or null where something else already made the noise -
+ * an arrival plays its own sound, and two at once reads as a glitch.
+ */
+export function ok(player: Player, message: string, cue: Sfx | null = 'done'): void {
   tell(player, `${C.good}${message}`);
+  if (cue) sfx(player, cue);
 }
 
 export function err(player: Player, message: string): void {
   tell(player, `${C.bad}${message}`);
+  sfx(player, 'denied');
 }
 
 export function broadcast(message: string): void {

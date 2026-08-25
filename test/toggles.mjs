@@ -50,7 +50,7 @@ const { world, system, Player, __test } = await import(path.join(ROOT, 'test', '
  * backing map sidesteps the early-execution guard, which is the point: this is
  * the state the world already has on disk when the script starts.
  */
-const stored = JSON.stringify({ jobsEnabled: false, starterKitEnabled: false });
+const stored = JSON.stringify({ jobsEnabled: false, starterKitEnabled: false, soundsEnabled: false });
 __test.props.set('adm:config#n', 1);
 __test.props.set('adm:config#0', stored);
 
@@ -104,6 +104,12 @@ const carried = player.slots.filter(Boolean).map((slot) => slot.typeId);
 check('no starter kit is given when it is switched off',
   carried.every((typeId) => typeId === 'adm:member_book'),
   `held: ${carried.join(', ') || 'nothing'}`);
+
+// Sounds are a matter of taste, so switching them off must silence every cue.
+player.sounds.length = 0;
+say('!sethome quiet');
+check('no sounds are played when they are switched off', player.sounds.length === 0,
+  player.sounds.join(', '));
 
 await rm(outDir, { recursive: true, force: true });
 console.log(`\n${failures === 0 ? 'PASS' : `FAIL (${failures})`}`);

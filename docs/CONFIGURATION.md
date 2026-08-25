@@ -86,6 +86,7 @@ Every setting lives in the world and is edited in-game through
 | `blockQuotaEnabled` | `boolean` | `false` | Daily block quotas (0 = unlimited) |
 | `blockQuotaMined` | `number` | `0` |  |
 | `blockQuotaPlaced` | `number` | `0` |  |
+| `soundsEnabled` | `boolean` | `true` | Audible feedback for menu actions, purchases and errors. |
 
 ## Moderation
 

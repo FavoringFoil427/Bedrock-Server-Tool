@@ -95,6 +95,9 @@ export interface Config {
   blockQuotaMined: number;
   blockQuotaPlaced: number;
 
+  /** Audible feedback for menu actions, purchases and errors. */
+  soundsEnabled: boolean;
+
   /** Moderation */
   antiSpamEnabled: boolean;
   antiSpamIntervalMs: number;
@@ -175,6 +178,8 @@ export function defaultConfig(): Config {
     blockQuotaEnabled: false,
     blockQuotaMined: 0,
     blockQuotaPlaced: 0,
+
+    soundsEnabled: true,
 
     antiSpamEnabled: true,
     antiSpamIntervalMs: 700,

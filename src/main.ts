@@ -4,6 +4,7 @@ import { installChatCommands, installNativeCommands, register, sendCommandList }
 import { flushAll } from './core/storage';
 import { profileOf, profiles } from './core/profiles';
 import { C, tell } from './core/util';
+import { forgetSounds } from './core/sound';
 import { chatAvailable } from './core/chatbridge';
 
 import * as economy from './modules/economy';
@@ -142,6 +143,7 @@ world.beforeEvents.playerLeave.subscribe((event) => {
     profile.lastSeen = Date.now();
     profiles.markDirty();
   }
+  forgetSounds(event.player.id);
 });
 
 // Persist everything still buffered when the world unloads.
