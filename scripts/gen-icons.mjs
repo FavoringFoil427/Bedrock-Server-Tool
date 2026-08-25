@@ -5,6 +5,11 @@
  * that every one of those paths exists and keeps its name across versions.
  * Several did not, and rendered as the magenta missing-texture square. Owning
  * the icons removes the guesswork and keeps the set visually consistent.
+ *
+ * Each icon is a thing that exists in the game rather than a generic dashboard
+ * symbol, so a player recognises it before reading the label. They are authored
+ * as 16x16 character maps - the resolution vanilla item art uses - and doubled
+ * to 32x32, which keeps the pixel grid crisp instead of resampling it.
  */
 import { deflateSync, crc32 as zlibCrc32 } from 'node:zlib';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -12,7 +17,8 @@ import path from 'node:path';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const OUT = path.join(ROOT, 'packs', 'RP', 'textures', 'ui');
-const SIZE = 32;
+const ART_SIZE = 16;
+const SIZE = ART_SIZE * 2;
 
 /* ------------------------------------------------------------- png writer */
 
@@ -56,160 +62,256 @@ function encodePng(pixels, w, h) {
   ]);
 }
 
-/* ------------------------------------------------------------ draw canvas */
+/* ------------------------------------------------------------------ palette */
 
-const CLEAR = [0, 0, 0, 0];
-const WHITE = [245, 248, 252, 255];
-const SHADE = [0, 0, 0, 70];
+const hex = (h) => [
+  parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16), 255,
+];
 
-function canvas() {
-  return Array.from({ length: SIZE }, () => Array.from({ length: SIZE }, () => CLEAR.slice()));
-}
-
-function put(img, x, y, color) {
-  x = Math.round(x); y = Math.round(y);
-  if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return;
-  if (color[3] === 255) { img[y][x] = color; return; }
-  // Simple source-over blend, so soft edges and shadows layer correctly.
-  const dst = img[y][x];
-  const a = color[3] / 255;
-  img[y][x] = [
-    Math.round(color[0] * a + dst[0] * (1 - a)),
-    Math.round(color[1] * a + dst[1] * (1 - a)),
-    Math.round(color[2] * a + dst[2] * (1 - a)),
-    Math.max(dst[3], color[3]),
-  ];
-}
-
-function rect(img, x0, y0, x1, y1, color) {
-  for (let y = Math.round(y0); y < Math.round(y1); y++) {
-    for (let x = Math.round(x0); x < Math.round(x1); x++) put(img, x, y, color);
-  }
-}
-
-function disc(img, cx, cy, r, color) {
-  for (let y = Math.floor(cy - r); y <= Math.ceil(cy + r); y++) {
-    for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) {
-      if ((x - cx) ** 2 + (y - cy) ** 2 <= r * r) put(img, x, y, color);
-    }
-  }
-}
-
-function ring(img, cx, cy, r, thickness, color) {
-  const inner = (r - thickness) ** 2;
-  for (let y = Math.floor(cy - r); y <= Math.ceil(cy + r); y++) {
-    for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) {
-      const d = (x - cx) ** 2 + (y - cy) ** 2;
-      if (d <= r * r && d >= inner) put(img, x, y, color);
-    }
-  }
-}
-
-function line(img, x0, y0, x1, y1, thickness, color) {
-  const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) * 3 + 1;
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    disc(img, x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, thickness / 2, color);
-  }
-}
-
-/** Filled triangle, used for roofs, arrows and flags. */
-function tri(img, ax, ay, bx, by, cx2, cy2, color) {
-  const minX = Math.floor(Math.min(ax, bx, cx2)), maxX = Math.ceil(Math.max(ax, bx, cx2));
-  const minY = Math.floor(Math.min(ay, by, cy2)), maxY = Math.ceil(Math.max(ay, by, cy2));
-  const area = (bx - ax) * (cy2 - ay) - (cx2 - ax) * (by - ay);
-  if (area === 0) return;
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      const w0 = ((bx - ax) * (y - ay) - (x - ax) * (by - ay)) / area;
-      const w1 = ((x - ax) * (cy2 - ay) - (cx2 - ax) * (y - ay)) / area;
-      if (w0 >= 0 && w1 >= 0 && w0 + w1 <= 1) put(img, x, y, color);
-    }
-  }
-}
-
-/** Rounded plate that every glyph sits on, giving the set one silhouette. */
-function plate(img, color) {
-  const r = 6;
-  rect(img, 2, 2 + r, 30, 30 - r, color);
-  rect(img, 2 + r, 2, 30 - r, 30, color);
-  for (const [cx, cy] of [[2 + r, 2 + r], [30 - r, 2 + r], [2 + r, 30 - r], [30 - r, 30 - r]]) {
-    disc(img, cx - 0.5, cy - 0.5, r, color);
-  }
-  // A darker base edge stops the flat plate looking like a sticker.
-  rect(img, 2 + r - 4, 28, 30 - r + 4, 30, SHADE);
-}
-
-/* ----------------------------------------------------------------- glyphs */
-
-const C = {
-  blue: [58, 122, 201, 255], green: [76, 165, 90, 255], gold: [214, 158, 46, 255],
-  teal: [56, 160, 158, 255], purple: [132, 94, 194, 255], olive: [138, 148, 62, 255],
-  pink: [200, 84, 122, 255], cyan: [64, 158, 196, 255], indigo: [86, 96, 176, 255],
-  brown: [140, 100, 62, 255], grey: [116, 124, 140, 255], red: [190, 74, 68, 255],
-  slate: [92, 104, 126, 255], orange: [201, 122, 58, 255],
+const PAL = {
+  k: hex('#17181d'), w: hex('#f4f7fb'), s: hex('#c8cfd9'), g: hex('#8c95a3'),
+  d: hex('#4c535e'), n: hex('#4a3524'), b: hex('#7a5230'), t: hex('#b98a52'),
+  r: hex('#c0392b'), R: hex('#e8615a'), o: hex('#e08a34'), y: hex('#f2c24c'),
+  Y: hex('#c9962e'), e: hex('#3fbf74'), E: hex('#24894f'), l: hex('#8fcf48'),
+  c: hex('#4fc3d9'), u: hex('#3c7adb'), U: hex('#2a55a0'), p: hex('#9b6be0'),
+  P: hex('#5e3e96'), m: hex('#d96ba0'), i: hex('#dce1e8'), I: hex('#98a1b0'),
+  q: hex('#5ae0d8'), f: hex('#d9a57c'), h: hex('#3a2a1e'),
 };
 
-const ICONS = {
-  profile: [C.blue, (i) => { disc(i, 16, 13, 5, WHITE); tri(i, 16, 17, 7, 27, 25, 27, WHITE); }],
-  players: [C.blue, (i) => {
-    disc(i, 11, 13, 4, WHITE); tri(i, 11, 16, 4, 25, 18, 25, WHITE);
-    disc(i, 21, 13, 4, WHITE); tri(i, 21, 16, 14, 25, 28, 25, WHITE);
-  }],
-  shop: [C.green, (i) => {
-    tri(i, 6, 14, 18, 6, 26, 14, WHITE); rect(i, 8, 14, 24, 26, WHITE);
-    rect(i, 13, 18, 19, 26, C.green);
-  }],
-  economy: [C.gold, (i) => { disc(i, 16, 16, 9, WHITE); ring(i, 16, 16, 6, 2, C.gold); rect(i, 15, 10, 17, 22, C.gold); }],
-  auction: [C.gold, (i) => { line(i, 9, 23, 21, 11, 4, WHITE); rect(i, 17, 5, 27, 12, WHITE); rect(i, 6, 25, 20, 28, WHITE); }],
-  home: [C.teal, (i) => { tri(i, 16, 5, 4, 16, 28, 16, WHITE); rect(i, 8, 16, 24, 27, WHITE); rect(i, 13, 19, 19, 27, C.teal); }],
-  warp: [C.purple, (i) => { ring(i, 16, 16, 10, 3, WHITE); tri(i, 22, 16, 12, 10, 12, 22, WHITE); }],
-  pwarp: [C.teal, (i) => {
-    rect(i, 14, 5, 18, 28, WHITE);
-    tri(i, 18, 8, 28, 11, 18, 14, WHITE);
-    tri(i, 14, 17, 4, 20, 14, 23, WHITE);
-  }],
-  land: [C.olive, (i) => { rect(i, 9, 5, 12, 28, WHITE); tri(i, 12, 6, 25, 11, 12, 16, WHITE); }],
-  reward: [C.pink, (i) => {
-    rect(i, 5, 13, 27, 17, WHITE); rect(i, 7, 17, 25, 27, WHITE);
-    rect(i, 14, 13, 18, 27, C.pink); disc(i, 12, 10, 4, WHITE); disc(i, 20, 10, 4, WHITE);
-  }],
-  progress: [C.cyan, (i) => { rect(i, 6, 20, 11, 27, WHITE); rect(i, 14, 14, 19, 27, WHITE); rect(i, 22, 7, 27, 27, WHITE); }],
-  clan: [C.indigo, (i) => { tri(i, 16, 27, 5, 9, 27, 9, WHITE); rect(i, 5, 6, 27, 10, WHITE); rect(i, 14, 12, 18, 20, C.indigo); }],
-  vault: [C.brown, (i) => { rect(i, 5, 10, 27, 15, WHITE); rect(i, 5, 16, 27, 27, WHITE); rect(i, 14, 15, 18, 21, C.brown); }],
-  settings: [C.grey, (i) => {
-    for (let a = 0; a < 8; a++) {
-      const t = (a / 8) * Math.PI * 2;
-      disc(i, 16 + Math.cos(t) * 10, 16 + Math.sin(t) * 10, 3.2, WHITE);
-    }
-    disc(i, 16, 16, 8, WHITE); disc(i, 16, 16, 3.5, C.grey);
-  }],
-  moderation: [C.red, (i) => { ring(i, 16, 13, 6, 3, WHITE); rect(i, 8, 14, 24, 27, WHITE); rect(i, 15, 18, 17, 23, C.red); }],
-  world: [C.green, (i) => { disc(i, 16, 16, 11, WHITE); ring(i, 16, 16, 11, 2, C.green); rect(i, 5, 15, 27, 17, C.green); ring(i, 16, 16, 6, 2, C.green); }],
-  roles: [C.orange, (i) => { ring(i, 11, 12, 6, 3, WHITE); line(i, 14, 15, 26, 27, 3, WHITE); rect(i, 21, 24, 26, 26, WHITE); }],
-  content: [C.purple, (i) => { rect(i, 6, 5, 26, 27, WHITE); rect(i, 15, 5, 17, 27, C.purple); rect(i, 9, 10, 14, 12, C.purple); rect(i, 18, 10, 23, 12, C.purple); }],
-  data: [C.slate, (i) => { line(i, 6, 22, 12, 15, 3, WHITE); line(i, 12, 15, 19, 19, 3, WHITE); line(i, 19, 19, 26, 8, 3, WHITE); rect(i, 5, 25, 27, 27, WHITE); }],
-  mining: [C.slate, (i) => { line(i, 8, 24, 24, 8, 3, WHITE); tri(i, 24, 4, 16, 8, 26, 14, WHITE); }],
-  combat: [C.red, (i) => { line(i, 9, 24, 23, 9, 3, WHITE); rect(i, 6, 22, 13, 25, WHITE); tri(i, 26, 5, 20, 9, 24, 13, WHITE); }],
-  building: [C.orange, (i) => {
-    rect(i, 5, 9, 27, 14, WHITE); rect(i, 5, 16, 27, 21, WHITE); rect(i, 5, 23, 27, 27, WHITE);
-    rect(i, 14, 9, 16, 14, C.orange); rect(i, 9, 16, 11, 21, C.orange); rect(i, 20, 16, 22, 21, C.orange);
-  }],
-  farming: [C.gold, (i) => {
-    line(i, 16, 27, 16, 8, 3, WHITE);
-    for (const y of [10, 15, 20]) { line(i, 16, y + 3, 9, y, 2.5, WHITE); line(i, 16, y + 3, 23, y, 2.5, WHITE); }
-  }],
-  explore: [C.cyan, (i) => { ring(i, 16, 16, 11, 3, WHITE); tri(i, 21, 11, 14, 18, 18, 22, WHITE); }],
-  back: [C.grey, (i) => { tri(i, 8, 16, 18, 8, 18, 24, WHITE); rect(i, 17, 14, 25, 18, WHITE); }],
+/* --------------------------------------------------------------------- art */
+
+const ART = {
+  // A player head, the way you recognise somebody in game.
+  profile: [
+    '................', '................', '................',
+    '...kkkkkkkkkk...', '...khhhhhhhhk...', '...khhhhhhhhk...',
+    '...kffffffffk...', '...kfwwffwwfk...', '...kfuuffuufk...',
+    '...kffffffffk...', '...kfnnnnnnfk...', '...kffffffffk...',
+    '...kkkkkkkkkk...', '................', '................', '................',
+  ],
+  // Two players stood together, not one head behind another.
+  players: [
+    '................', '................', '................',
+    '.kkkkkk..kkkkkk.', '.khhhhk..khhhhk.', '.kffffk..kffffk.',
+    '.kfuufk..kfuufk.', '.kffffk..kffffk.', '.kkkkkk..kkkkkk.',
+    '.kuuuuk..keeeek.', '.kuuuuk..keeeek.', '.kuuuuk..keeeek.',
+    '.kkkkkk..kkkkkk.', '................', '................',
+    '................',
+  ],
+  // An emerald - what you actually trade with.
+  shop: [
+    '................', '................', '................',
+    '......kkkk......', '.....keeeek.....', '....keewweek....',
+    '...keeewweeek...', '..keeeewweeeek..', '..kEeeeeeeeeEk..',
+    '...kEeeeeeeEk...', '....kEeeeeEk....', '.....kEeeEk.....',
+    '......kEEk......', '.......kk.......', '................', '................',
+  ],
+  economy: [
+    '................', '................', '................', '................',
+    '................', '....kkkkkkkk....', '...kyyyyyyyyk...',
+    '..kyywwwwwwyyk..', '..kyyyyyyyyyyk..', '.kYyyyyyyyyyyYk.',
+    '.kYYyyyyyyyyYYk.', '.kkkkkkkkkkkkkk.', '................',
+    '................', '................', '................',
+  ],
+  auction: [
+    '................', '................', '.......kk.......',
+    '......kyyk......', '.....kyyyyk.....', '....kyyyyyyk....',
+    '...kyywwwwyyk...', '...kyyyyyyyyk...', '..kyyyyyyyyyyk..',
+    '..kYyyyyyyyyYk..', '.kYYYYYYYYYYYYk.', '.kkkkkkkkkkkkkk.',
+    '......kYYk......', '......kkkk......', '................', '................',
+  ],
+  home: [
+    '................', '................', '................', '................',
+    '..kkkkkkkkkkkk..', '..kwwwwkrrrrrk..', '..kwwwwkrrrrrk..',
+    '..kRrrrrrrrrrk..', '..krrrrrrrrrrk..', '..kttttttttttk..',
+    '..kkkkkkkkkkkk..', '..kk........kk..', '..kk........kk..',
+    '................', '................', '................',
+  ],
+  // Ender pearl - the thing you throw to teleport.
+  warp: [
+    '................', '................', '.....kkkkkk.....',
+    '...kkqqqqqqkk...', '..kqqqqqqqqqqk..', '..kqwwqqqqqqqk..',
+    '..kqwwqqqqqqqk..', '..kqqqqEEqqqqk..', '..kqqqEEEEqqqk..',
+    '..kqqqqEEqqqqk..', '..kqqqqqqqqqqk..', '..kqqqqqqqqqqk..',
+    '...kkqqqqqqkk...', '.....kkkkkk.....', '................',
+    '................',
+  ],
+  // Eye of ender - a pearl someone else made, that others can follow.
+  pwarp: [
+    '................', '................', '.....kkkkkk.....',
+    '...kkeeeeeekk...', '..keeeeeeeeeek..', '..kewweeeeeeek..',
+    '..keeeekkeeeek..', '..keeekkkkeeek..', '..keeekkkkeeek..',
+    '..keeeekkeeeek..', '..keeeeeeeeeek..', '..keeeeeeeeeek..',
+    '...kkeeeeeekk...', '.....kkkkkk.....', '................',
+    '................',
+  ],
+  // A map with a marker on it.
+  land: [
+    '................', '................', '................',
+    '..kkkkkkkkkkkk..', '..kttttttttttk..', '..ktwwwwwwwwtk..',
+    '..ktwEEEwwwwtk..', '..ktEEEEEwrwtk..', '..ktwEEEwrrwtk..',
+    '..ktwwwwwwwwtk..', '..kttttttttttk..', '..kkkkkkkkkkkk..',
+    '................', '................', '................',
+    '................',
+  ],
+  // Golden apple - the thing you are pleased to be handed.
+  reward: [
+    '................', '................', '......kk........',
+    '......kkEEEk....', '....kkkyykkk....', '..kkyyyyyyyykk..',
+    '..kyywwyyyyyyk..', '.kyywwyyyyyyyyk.', '.kyyyyyyyyyyyyk.',
+    '.kyyyyyyyyyyyyk.', '.kYyyyyyyyyyyYk.', '..kYyyyyyyyyYk..',
+    '...kYYyyyyYYk...', '....kkYYYYkk....', '......kkkk......',
+    '................',
+  ],
+  progress: [
+    '................', '................', '......kkkk......',
+    '......kttk......', '......kwwk......', '.....kwwwwk.....',
+    '....kwwwwwwk....', '...kwwllllwwk...', '...kwllllllwk...',
+    '..kwllllllllwk..', '..kwllllllllwk..', '..kwEllllllEwk..',
+    '..kwEEEEEEEEwk..', '..kkkkkkkkkkkk..', '................', '................',
+  ],
+  clan: [
+    '................', '................', '..kkkkkkkkkkkk..',
+    '..kbkuuuuuuuuk..', '..kbkuuwwwwuuk..', '..kbkuwwwwwwuk..',
+    '..kbkuuwwwwuuk..', '..kbkuuuwwuuuk..', '..kbkuuuuuuuuk..',
+    '..kbkUUUUUUUUk..', '..kbkkkkkkkkkk..', '..kbk...........',
+    '..kbk...........', '..kkk...........', '................', '................',
+  ],
+  // Ender chest - storage that follows you, which is what a vault is.
+  vault: [
+    '................', '................', '................', '................',
+    '..kkkkkkkkkkkk..', '..kPPPPPPPPPPk..', '..kPppppppppPk..',
+    '..kkkkkkkkkkkk..', '..kPppkyykppPk..', '..kPppkyykppPk..',
+    '..kPppppppppPk..', '..kPppppppppPk..', '..kkkkkkkkkkkk..',
+    '................', '................', '................',
+  ],
+  // A lever - the most literal "switch things on and off" in the game.
+  settings: [
+    '................', '................', '................',
+    '..........kRk...', '.........kRRRk..', '.........kRRRk..',
+    '..........kbk...', '.........kbk....', '........kbk.....',
+    '.......kbk......', '..kkkkkkkkkkkk..', '..kggggggggggk..',
+    '..kgddgggddggk..', '..kkkkkkkkkkkk..', '................', '................',
+  ],
+  moderation: [
+    '................', '................', '..kkkkkkkkkkkk..',
+    '..kiiiiiiiiiik..', '..kittttttttik..', '..kitwwwwwwtik..',
+    '..kitwwwwwwtik..', '..kittttttttik..', '..kiiiiiiiiiik..',
+    '...kiiiiiiiik...', '....kiiiiiik....', '.....kiiiik.....',
+    '......kiik......', '.......kk.......', '................', '................',
+  ],
+  world: [
+    '................', '................', '................',
+    '..kkkkkkkkkkkk..', '..kllllllllllk..', '..klEllllElllk..',
+    '..kEEEEEEEEEEk..', '..kbbbbbbbbbbk..', '..kbnbbbbbnbbk..',
+    '..kbbbbnbbbbbk..', '..kbbnbbbbbnbk..', '..kbbbbbbbbbbk..',
+    '..kkkkkkkkkkkk..', '................', '................', '................',
+  ],
+  // A name tag - a role is the label you wear.
+  roles: [
+    '................', '................', '................',
+    '................', '..kkkkkkkkkkkk..', '..kttttttttttk..',
+    '..ktwwwwwwwwtk..', '..ktwkkkkkkwtk..', '..ktwkkkkwwwtk..',
+    '..ktwwwwwwwwtk..', '..kttttttttttk..', '..kkkkkkkkkkkk..',
+    '................', '................', '................',
+    '................',
+  ],
+  content: [
+    '................', '................', '................',
+    '..kkkkkkkkkkkk..', '..kuuuuuuuuuwk..', '..kuwwwwwwwuwk..',
+    '..kuwwwwwwwuwk..', '..kuwkkkkkwuwk..', '..kuwwwwwwwuwk..',
+    '..kuwkkkkkwuwk..', '..kuwwwwwwwuwk..', '..kUUUUUUUUUwk..',
+    '..kkkkkkkkkkkk..', '................', '................',
+    '................',
+  ],
+  data: [
+    '................', '................', '................',
+    '..kkkkkkkkkkkk..', '..kwwwwwwwwwwk..', '..kwwwwwwwuuwk..',
+    '..kwwwwwwwuuwk..', '..kwwwwuuwuuwk..', '..kwwwwuuwuuwk..',
+    '..kwuuwuuwuuwk..', '..kwuuwuuwuuwk..', '..kkkkkkkkkkkk..',
+    '................', '................', '................', '................',
+  ],
+  mining: [
+    '................', '................', '...kkk....kkk...',
+    '..kqqqkkkkqqqk..', '..kqqqqqqqqqqk..', '..kkqqqqqqqqkk..',
+    '......kbbk......', '.....kbbk.......', '....kbbk........',
+    '...kbbk.........', '..kbbk..........', '..kbbk..........',
+    '..kkk...........', '................', '................', '................',
+  ],
+  combat: [
+    '................', '.......kk.......', '......kiik......',
+    '......kiik......', '......kiik......', '......kiik......',
+    '......kiik......', '......kiik......', '....kyyiiyyk....',
+    '....kkkiikkk....', '......kbbk......', '......kbbk......',
+    '......kbbk......', '......kkkk......', '................', '................',
+  ],
+  building: [
+    '................', '................', '................',
+    '..kkkkkkkkkkkk..', '..krrrrkrrrrrk..', '..krrrrkrrrrrk..',
+    '..kkkkkkkkkkkk..', '..krrkrrrrkrrk..', '..krrkrrrrkrrk..',
+    '..kkkkkkkkkkkk..', '..krrrrkrrrrrk..', '..krrrrkrrrrrk..',
+    '..kkkkkkkkkkkk..', '................', '................', '................',
+  ],
+  // A carrot - a crop you can actually hold.
+  farming: [
+    '................', '................', '....kEk..kEk....',
+    '.....kEkkEk.....', '......kEEk......', '.....kkkkkk.....',
+    '.....kooook.....', '.....kooook.....', '.....kooook.....',
+    '......kook......', '......kook......', '.......kk.......',
+    '.......kk.......', '................', '................',
+    '................',
+  ],
+  // A compass, needle and all.
+  explore: [
+    '................', '................', '.....kkkkkk.....',
+    '...kkiiiiiikk...', '..kiiiiiiiiiik..', '..kiiwwrrwwiik..',
+    '..kiwwwrrwwwik..', '..kiwwwrrwwwik..', '..kiwwwddwwwik..',
+    '..kiwwwddwwwik..', '..kiiwwddwwiik..', '..kiiiiiiiiiik..',
+    '...kkiiiiiikk...', '.....kkkkkk.....', '................',
+    '................',
+  ],
+  back: [
+    '................', '................', '................',
+    '......kk........', '.....kwk........', '....kwwk........',
+    '...kwwwkkkkkkk..', '..kwwwwwwwwwwwk.', '..kwwwwwwwwwwwk.',
+    '...kwwwkkkkkkk..', '....kwwk........', '.....kwk........',
+    '......kk........', '................', '................', '................',
+  ],
 };
+
+/* ------------------------------------------------------------------ render */
+
+/**
+ * Turns one character map into pixels. Every row must be exactly ART_SIZE
+ * characters and every character must be in the palette - a typo in art this
+ * dense is otherwise invisible until it ships, so it fails the build instead.
+ */
+function render(name, rows) {
+  if (rows.length !== ART_SIZE) {
+    throw new Error(`${name}: expected ${ART_SIZE} rows, got ${rows.length}`);
+  }
+  const img = Array.from({ length: SIZE }, () =>
+    Array.from({ length: SIZE }, () => [0, 0, 0, 0]));
+  rows.forEach((row, y) => {
+    if (row.length !== ART_SIZE) {
+      throw new Error(`${name} row ${y}: expected ${ART_SIZE} characters, got ${row.length}`);
+    }
+    [...row].forEach((ch, x) => {
+      if (ch === '.') return;
+      const colour = PAL[ch];
+      if (!colour) throw new Error(`${name} row ${y}: "${ch}" is not in the palette`);
+      for (let dy = 0; dy < 2; dy++) {
+        for (let dx = 0; dx < 2; dx++) img[y * 2 + dy][x * 2 + dx] = colour;
+      }
+    });
+  });
+  return img;
+}
 
 await mkdir(OUT, { recursive: true });
 const names = [];
-for (const [name, [colour, draw]] of Object.entries(ICONS)) {
-  const img = canvas();
-  plate(img, colour);
-  draw(img);
-  await writeFile(path.join(OUT, `adm_${name}.png`), encodePng(img, SIZE, SIZE));
+for (const [name, rows] of Object.entries(ART)) {
+  await writeFile(path.join(OUT, `adm_${name}.png`), encodePng(render(name, rows), SIZE, SIZE));
   names.push(`adm_${name}`);
 }
 console.log(`wrote ${names.length} icons to packs/RP/textures/ui/`);

@@ -1,6 +1,6 @@
 {
   "name": "bedrock-server-tool",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "description": "Admin Suite - an all-in-one server management addon for Minecraft Bedrock",
   "type": "module",
   "scripts": {
