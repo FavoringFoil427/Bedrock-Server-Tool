@@ -24,6 +24,22 @@ export const __ui = {
   submit(...formValues) {
     return __ui.answer({ canceled: false, formValues });
   },
+  /**
+   * Queues a form that stays open, the way a real one waits on the player.
+   * Returns a function that closes it, optionally on a button.
+   */
+  hold() {
+    let settle;
+    const waiting = new Promise((resolve) => { settle = resolve; });
+    __ui.answer(() => waiting);
+    return (selection) => settle(selection === undefined
+      ? { canceled: true, cancelationReason: FormCancelationReason.UserClosed }
+      : { canceled: false, selection });
+  },
+  /** Queues a "the player has another screen up" refusal. */
+  busy() {
+    return __ui.answer({ canceled: true, cancelationReason: FormCancelationReason.UserBusy });
+  },
   /** Button labels of the last form shown. */
   lastButtons() { return buttonsOf(__ui.shown[__ui.shown.length - 1]); },
   /** Body text of the last form shown. */

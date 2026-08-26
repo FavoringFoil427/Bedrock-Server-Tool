@@ -21,16 +21,53 @@ import { sfx } from './sound';
 const BUSY_RETRIES = 40;
 const BUSY_DELAY_TICKS = 5;
 
+/**
+ * One screen at a time, per player.
+ *
+ * A single physical click can raise more than one event - using an item at a
+ * block raises both `itemUse` and `playerInteractWithBlock` - so one click
+ * could start two menus. The second cannot show while the first is up, so it
+ * sat in the retry loop below for up to ten seconds and then landed in the
+ * gap between one screen closing and the next opening. To the player that is
+ * a click that throws them back to the top of the menu, and two screens to
+ * dismiss at the end instead of one.
+ *
+ * A player who already has one of our forms up is therefore never handed a
+ * second. Navigation is unaffected: the previous form has resolved, and this
+ * released, before the next one is built.
+ */
+const showing = new Set<string>();
+
+/** True while a form is on this player's screen awaiting their answer. */
+export function isShowingForm(playerId: string): boolean {
+  return showing.has(playerId);
+}
+
+/** Releases a leaver, so a dropped connection cannot lock them out. */
+export function forgetForms(playerId: string): void {
+  showing.delete(playerId);
+}
+
 async function showWithRetry<T extends { canceled: boolean; cancelationReason?: FormCancelationReason }>(
+  player: Player,
   show: () => Promise<T>,
 ): Promise<T | undefined> {
-  for (let attempt = 0; attempt < BUSY_RETRIES; attempt++) {
-    const response = await show();
-    if (!response.canceled) return response;
-    if (response.cancelationReason !== FormCancelationReason.UserBusy) return undefined;
-    await sleep(BUSY_DELAY_TICKS);
+  if (showing.has(player.id)) return undefined;
+  showing.add(player.id);
+  try {
+    for (let attempt = 0; attempt < BUSY_RETRIES; attempt++) {
+      // Retrying at somebody who has left just burns ticks.
+      if (!player.isValid) return undefined;
+      const response = await show();
+      if (!response.canceled) return response;
+      if (response.cancelationReason !== FormCancelationReason.UserBusy) return undefined;
+      await sleep(BUSY_DELAY_TICKS);
+    }
+    return undefined;
+  } finally {
+    // Released even if the form threw, or this would lock the player out.
+    showing.delete(player.id);
   }
-  return undefined;
 }
 
 export interface MenuButton {
@@ -58,7 +95,7 @@ export async function menu(player: Player, options: MenuOptions): Promise<void> 
   if (buttons.length === 0) {
     form.body((options.body ? options.body + '\n\n' : '') + `${C.dim}Nothing to show.`);
     form.button(`${C.dim}Close`);
-    await showWithRetry<ActionFormResponse>(() => form.show(player));
+    await showWithRetry<ActionFormResponse>(player, () => form.show(player));
     return;
   }
 
@@ -67,8 +104,10 @@ export async function menu(player: Player, options: MenuOptions): Promise<void> 
     else form.button(button.text);
   }
 
+  // A duplicate event, not a navigation: drop it rather than fight for the screen.
+  if (isShowingForm(player.id)) return;
   sfx(player, 'open');
-  const response = await showWithRetry<ActionFormResponse>(() => form.show(player));
+  const response = await showWithRetry<ActionFormResponse>(player, () => form.show(player));
   if (!response || response.selection === undefined) return;
   const chosen = buttons[response.selection];
   if (chosen) await chosen.onClick();
@@ -83,7 +122,7 @@ export async function confirm(
   cancelText = `${C.dim}Cancel`,
 ): Promise<boolean> {
   const form = new MessageFormData().title(title).body(body).button1(cancelText).button2(confirmText);
-  const response = await showWithRetry(() => form.show(player));
+  const response = await showWithRetry(player, () => form.show(player));
   // button2 is the right-hand (confirm) button, reported as selection 1.
   return response?.selection === 1;
 }
@@ -129,7 +168,7 @@ export async function prompt(
   }
   form.submitButton(submitText);
 
-  const response = await showWithRetry<ModalFormResponse>(() => form.show(player));
+  const response = await showWithRetry<ModalFormResponse>(player, () => form.show(player));
   if (!response || !response.formValues) return undefined;
   return response.formValues.map((value, index) => {
     if (value !== undefined) return value;

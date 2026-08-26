@@ -257,6 +257,13 @@ A few decisions worth knowing:
   than empty - reported by a server owner who assumed warps were not working.
   Every list now explains itself, and a test fails the build if a new one does
   not.
+- **One screen at a time, per player.** A single physical click can raise more
+  than one event - using an item at a block raises both `itemUse` and
+  `playerInteractWithBlock` - so one click could start two menus. The second
+  could not show while the first was up, waited in the busy-retry loop, then
+  appeared in the gap between one screen closing and the next opening: a click
+  that throws you back to the top, and two screens to dismiss at the end. A
+  player who already has a form up is never handed a second one.
 - **Silence reads as failure.** A menu that answers without a sound feels
   broken even when it worked, so outcomes carry a cue. Only the first cue in a
   tick is played: an arrival makes its own sound and the caller then confirms

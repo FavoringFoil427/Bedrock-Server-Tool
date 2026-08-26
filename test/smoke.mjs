@@ -770,6 +770,57 @@ for (const file of await collectJson(path.join(rpDir, 'entity'))) {
 }
 
 /*
+ * One screen at a time. Using a suite item at a block raises both `itemUse`
+ * and `playerInteractWithBlock`, so one physical click used to start two
+ * menus: the second could not show while the first was up, waited in the
+ * retry loop, then appeared in the gap between one screen closing and the
+ * next opening. That reads as a click throwing you back to the top, and
+ * leaves two screens to dismiss instead of one.
+ */
+{
+  const clicker = new Player('Clicker', 'p-click');
+  __test.players.push(clicker);
+  world.afterEvents.playerSpawn.emit({ player: clicker, initialSpawn: true });
+  for (const t of system.timeouts.splice(0)) t.cb();
+  __test.flush();
+
+  __ui.reset();
+  const close = __ui.hold();
+  // The two events one right-click at a block really produces.
+  world.afterEvents.itemUse.emit({ source: clicker, itemStack: { typeId: 'adm:member_book' } });
+  await settle();
+  const afterFirst = __ui.shown.length;
+  world.beforeEvents.playerInteractWithBlock.emit({
+    player: clicker, itemStack: { typeId: 'adm:member_book' },
+    block: { typeId: 'minecraft:stone', location: { x: 0, y: 64, z: 0 } }, cancel: false,
+  });
+  await settle();
+
+  check('one click opens exactly one menu', __ui.shown.length === afterFirst,
+    `${afterFirst} -> ${__ui.shown.length} forms shown`);
+  check('the click did open a menu at all', afterFirst === 1, `${afterFirst} forms shown`);
+
+  // Closing it must leave nothing behind, and the next click must still work.
+  close();
+  await settle();
+  __ui.reset();
+  __ui.answer({ canceled: true, cancelationReason: 'UserClosed' });
+  world.afterEvents.itemUse.emit({ source: clicker, itemStack: { typeId: 'adm:member_book' } });
+  await settle();
+  check('the menu still opens after the last one was closed', __ui.shown.length === 1,
+    `${__ui.shown.length} forms shown`);
+
+  // A player busy in chat still gets their menu once the chat closes.
+  __ui.reset();
+  __ui.busy();
+  __ui.answer({ canceled: true, cancelationReason: 'UserClosed' });
+  world.beforeEvents.chatSend.emit({ sender: clicker, message: '!menu', cancel: false });
+  await settle();
+  check('a menu asked for from chat retries past the chat screen',
+    __ui.shown.length === 2, `${__ui.shown.length} attempts`);
+}
+
+/*
  * Search. Lists that grow with the server cannot be worked by paging alone,
  * so the long ones filter - and a search that matches nothing has to say so
  * rather than looking like the list emptied itself.
